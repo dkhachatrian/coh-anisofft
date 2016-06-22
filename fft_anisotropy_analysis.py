@@ -47,9 +47,9 @@ intensities = t.calculate_relative_intensities(input=data, slice_numbers=(numx, 
 
 A_er = numpy.ndarray(intensities.shape)
 
-for i in range(0, xsize, roix):
-    for j in range(0, ysize, roiy):
-        roi = t.create_windowed_roi(input=data, startx=i, starty=j, width=roix, height=roiy) #take subsections, have them normalized
+for i in range(0, numx):
+    for j in range(0, numy):
+        roi = t.create_windowed_roi(input=data, startx=i*roix, starty=j*roiy, width=roix, height=roiy) #take subsections, have them normalized
         roi_f = numpy.fft.fftn(roi, s=None, axes=None, norm=None) #perform discrete Fourier transform on ROI
         #could potentially do a real FFT/Hermitian FFT. Could save computational time?
         
@@ -72,8 +72,10 @@ for i in range(0, xsize, roix):
         
 
 with open(os.path.join(outdir, 'aniso_ratios.txt'), 'w') as outf:
-    outf.write(A_er) #write resulting intensity array to file
+    outf.write(str(A_er)) #write resulting intensity array to file
 
+with open(os.path.join(outdir, 'mean_intensities.txt'), 'w') as outf:
+    outf.write(str(intensities)) #write resulting intensity array to file
 
 
 

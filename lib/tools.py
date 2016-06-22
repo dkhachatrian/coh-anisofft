@@ -12,7 +12,7 @@ def create_windowed_roi(input,startx,starty,width,height):
     """From a 2D array (input) containing brightness information of the original image, create a 2D array starting at the specified coordinates with the specified thicknesses, convoluted with a window function. Then, return the 2D array, normalized by having each element be the prior element's residual.
     The window function will be, by default, a Hamming function. (TODO: Look into other window functions.)"""
 
-    roi = numpy.ndarray([width,height])
+    roi = numpy.ndarray([height,width]) #2D arrays always have the left-to-right selector as the last coordinate
     
     winx = numpy.hamming(width)
     winy = numpy.hamming(height)
@@ -22,14 +22,14 @@ def create_windowed_roi(input,startx,starty,width,height):
     
     for i in range(width):
         for j in range(height):
-            roi[i][j] = winx[i]*winy[j]*input[startx+i][starty+j] #create windowed value
-            mean += roi[i][j] #tally
+            roi[j][i] = winx[i]*winy[j]*input[starty+j][startx+i] #create windowed value
+            mean += roi[j][i] #tally
     
     mean /= (i*j)
     
     for i in range(width):
         for j in range(height):
-            roi[i][j] -= mean #replace original value with its residual, normalizing the array
+            roi[j][i] -= mean #replace original value with its residual, normalizing the array
     
     return roi
     
@@ -37,6 +37,8 @@ def create_windowed_roi(input,startx,starty,width,height):
 def calculate_relative_intensities(input, slice_numbers):
     """Input a n-dimentionsal array, and the number of subregions to be made (in a list of ints, n_slices; e.g., [2,3] would divide the original image into 6 rectangles, 2 fitting in the x-direction and 3 fitting in the y-direction). Return an n-dimensional array with the mean intensities of each subregion, relative to the mean intensity of the entire image.
     Will complain if the dimension of input does not match the size of slice_numbers."""
+    
+    # TODO: check that the resulting matrix isn't actually transposed from what it should be    
     
     if(input.ndim != len(slice_numbers)):
         print('The dimension of the input data array and the specified slice numbers do not match!')
