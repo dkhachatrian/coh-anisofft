@@ -21,12 +21,15 @@ import numpy #for fast Fourier Transform
 from PIL import Image
 from lib import tools as t
 
+
+outdir = os.path.join(dname, 'outputs') #directory for output files
+
 #Take in image file, as bytearray
 
 im_orig = Image.open(os.path.join(dep, 'test-orientation.tif'))
 im = im_orig.convert('L') #convvert to grayscale
 
-xsize, ysize = im.size()
+xsize, ysize = im.size
 
 # in grayscale: 0 = black, 255 = white
 data = numpy.array(im)
@@ -35,12 +38,12 @@ data = numpy.array(im)
 numx = 20
 numy = 20
 
-roix = xsize / numx #roix = xsize for a given region of interest
-roiy = ysize / numy
+roix = int(xsize / numx) #roix = xsize for a given region of interest
+roiy = int(ysize / numy)
 
 #calculate unaltered mean intensities of the roi's, and the mean intensity of the entire image, to weight the anisotropy eigenvalue-ratio index later on
 
-intensities = t.calculate_relative_intensities(input=data, slice_numbers = [numx, numy])
+intensities = t.calculate_relative_intensities(input=data, slice_numbers=(numx, numy))
 
 A_er = numpy.ndarray(intensities.shape)
 
@@ -57,17 +60,20 @@ for i in range(0, xsize, roix):
         #evals,evecs = numpy.linalg.eig(cov)
         
         evals_arr, evecs_arr = numpy.linalg.eig(cov)
-        estuff = []
+        estuff = list(zip(evals_arr, evecs_arr))  #build up list of tuples of eignevalues and eigenvectors
         
-        for i in len(evals_arr): #len(evals_arr) == len(evecs_arr), always
-            estuff.append(tuple(zip(evals_arr[i],evecs_arr[i]))) #build up list of tuples of eignevalues and eigenvectors
+#        for i in range(len(evals_arr)): #len(evals_arr) == len(evecs_arr), always
+#            estuff.append(tuple(zip(evals_arr[i],evecs_arr[i]))) #build up list of tuples of eignevalues and eigenvectors
         
         estuff = sorted(estuff, key= lambda tup: tup[0]) #sort eigenvalues in ascending order, moving eigenvectors along with them
         
-        A_er[i][j] = (1 - estuff[0][0]/estuff[-1][0]) * intensities[i][j] #populate A_er matrix using appropriate formula and weighting
+        A_er[i][j] = (1 - abs(estuff[0][0]/estuff[-1][0])) * intensities[i][j] #populate A_er matrix using appropriate formula and weighting
+        #eigenvalues should already be working
         
 
-# A_er
+with open(os.path.join(outdir, 'aniso_ratios.txt'), 'w') as outf:
+    outf.write(A_er) #write resulting intensity array to file
+
 
 
 
