@@ -12,23 +12,30 @@ def create_windowed_roi(input,startx,starty,width,height):
     """From a 2D array (input) containing brightness information of the original image, create a 2D array starting at the specified coordinates with the specified thicknesses, convoluted with a window function. Then, return the 2D array, normalized by having each element be the prior element's residual.
     The window function will be, by default, a Hamming function. (TODO: Look into other window functions.)"""
 
-    roi = numpy.ndarray([height,width]) #2D arrays always have the left-to-right selector as the last coordinate
+    roi = numpy.ndarray([height, width]) #2D arrays always have the left-to-right selector as the last coordinate
     
-    winx = numpy.hamming(width)
     winy = numpy.hamming(height)
-    
+    winx = numpy.hamming(width)
+        
     mean = 0.0 #to be subtracted off each element
 
+    roi = input[starty:starty+height, startx:startx+width]
     
-    for i in range(width):
-        for j in range(height):
-            roi[j][i] = winx[i]*winy[j]*input[starty+j][startx+i] #create windowed value
-            mean += roi[j][i] #tally
+    #convolute with window function
+    for i in range(roi.shape[-1]):
+        for j in range(roi.shape[-2]):
+            roi[j][i] = roi[j][i]*winx[i]*winy[j]
+            mean += roi[j][i]
+#    
+#    for j in range(width):
+#        for i in range(height):
+#            roi[j][i] = winx[j]*winy[i]*input[starty+j][startx+i] #create windowed value
+#            mean += roi[j][i] #tally
+#    
+    mean /= roi.size
     
-    mean /= (i*j)
-    
-    for i in range(width):
-        for j in range(height):
+    for i in range(roi.shape[-1]):
+        for j in range(roi.shape[-2]):
             roi[j][i] -= mean #replace original value with its residual, normalizing the array
     
     return roi
