@@ -81,9 +81,13 @@ for i in range(0, numx):
         
         # create radial histogram/profile ## TODO: Why? How?
         
+        #P = np.abs(A)**2 #power spectrum
         
-        p_x = [(n.real)**2 for n in numpy.reshape(roi_f, roi_f.size)] #reshape() changes the matrix to a (in this case) 1D array
-        p_y = [(n.imag)**2 for n in numpy.reshape(roi_f, roi_f.size)]
+        roi_f_g = roi_f[0:roi_f.shape[0]/2, 0:roi_f.shape[1]/2] #crop out the redundant negative ferquencies, and the Nyquist frequency (if the axis is even), to leave only the entries whose values have meaning
+        
+        n_b = 100 #number of bins to divide the frequencies up (since)
+        
+        p_spec = t.compute_power_matrix(input=roi_f_g, n_bins = n_b)
         
         P = numpy.transpose(numpy.array([p_x, p_y])) #something seems off... That I have to transpose
         

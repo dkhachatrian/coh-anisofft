@@ -14,8 +14,17 @@ def create_windowed_roi(input,startx,starty,width,height):
 
     roi = numpy.ndarray([height, width]) #2D arrays always have the left-to-right selector as the last coordinate
     
-    winy = numpy.hamming(height)
-    winx = numpy.hamming(width)
+    #winy = numpy.hamming(height)
+    #winx = numpy.hamming(width)
+    
+    # Rectangular Window
+    winy = numpy.ones(height)
+    winx = numpy.ones(width)
+
+#    h = hamming(n)
+#    ham2d = sqrt(outer(h,h))    
+    
+    
         
     mean = 0.0 #to be subtracted off each element
 
@@ -88,5 +97,59 @@ def calculate_relative_intensities(input, slice_numbers):
     
     return intensities
     
+
+def compute_power_matrix(input, n_bins):
+    """ Takes in a matrix containing the complex values obtained from performing a Fourier Transform on a set of data, with redundant values (i.e. those values for frequencies above or equal to the Nyquist frequency) removed, input.
+    Returns an 2-by-n_bins matrix, with each column denoting the x- and y- components of the power of all frequencies within a particular phase shift range (with thickness of 2*pi/(n_bins)). """
+    
+    # For some reason, we stop caring about the spatial-frequency of the funcctions from which the phase shift and amplitude originated?    
+        # This goes into the spirit of averaging over the entire region of interest. We're nont worried about local fluctuation within the ROI as a result of different spatial-frequency vavlues; we're more interested in understanding, when looking at the entire ROI, which direction corresponds to the most anisotropy, and how significantly different is that direction from its orthogonal direction?
+      
+    
+    dtheta = 2*numpy.pi/n_bins
+    power_sum = numpy.zeros([2,n_bins])
+    
+    #for every element in the frequency-representation of the original function
+    for z in numpy.nditer(input):
+        a = z.real
+        b = z.imag
+    
+        #get the sinusoid's power
+        power = a**2 + b**2
+        
+
+        if power == 0:
+            print('Fourier transform spat out a sinusoid term with no amplitude or phase!') #should never be the case...
+        
+        #get the sinusoid's phase
+        
+        if a == 0:  #special case to avoid division by zero
+            if b > 0:
+                phase = numpy.pi * 1/2
+            elif b < 0:
+                phase = numpy.pi * 3/2
+            #else:
+            #    print('Fourier transform spat out a sinusoid term with no amplitude or phase!')
+        else:
+            phase = numpy.arctan(b/a)
+        
+        #figure out which bin to place this element's power components; place it in
+        i = phase / dtheta
+        power_sum[0][i] += a**2 #cosine of the power; the x-component of the power
+        power_sum[1][i] += b**2 #sine of the power; the y-component of the power
+    
+    return power_sum
+    
+    #now power_sum contains a measure of how much (the sine functions whose sum describe the original function) tended to be phase-shifted by a particular amount, weighted by their contribution to the image.
+    # We can think of this as a measure of how much the sine functions wanted to be oriented in a particular x-y direction (as given by theta).
+    # So we re-decompose the powers into their x- and y- components.
+    # We can then obtain the covariance between the powers along the x- and y-components; this would describe how often a change in power along the x-direction gave rise to a change in power along the y-direction. This is essentially describing the anisotropy.
+    # We can then use principal component analysis to obtain eigenvalues and eigenvectors describing the directions in which most of the variance in the power covariance matrix can be described.
+    # We can look at the eigenvector corresponding to the dominant eigenvalue as the principal component, describing most of the covariance. This means it describes the most anisotropy, and its angle (obtained via the arctangent) describes the angle of most anisotropy
+    
+
+
+        
+        
     
     
