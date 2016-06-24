@@ -101,7 +101,18 @@ for i in range(0, numx):
         #evals,evecs = numpy.linalg.eig(cov)
         
         evals_arr, evecs_arr = numpy.linalg.eig(cov)
-        estuff = list(zip(evals_arr, evecs_arr))  #build up list of tuples of eignevalues and eigenvectors
+        
+        
+        #TODO: clean up below code for normalizing eigenvectors?
+        
+        ezip = list(zip(evals_arr, evecs_arr))  #build up list of tuples of eignevalues and eigenvectors
+        estuff = []
+
+        for eval, evec in ezip:
+            l = numpy.sqrt(sum(evec**2)) #length of eigenvectcor
+            evec = evec / l #normalize eigenvectors to unit vectors       
+            estuff.append(zip(eval,evec))
+        
         
         estuff = sorted(estuff, key= lambda tup: tup[0]) #sort eigenvalues in ascending order, moving eigenvectors along with them
         
