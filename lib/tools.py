@@ -109,8 +109,11 @@ def compute_power_matrix(input, n_bins):
     dtheta = 2*numpy.pi/n_bins
     power_sum = numpy.zeros([2,n_bins])
     
+    
     #for every element in the frequency-representation of the original function
     for z in numpy.nditer(input):
+        if z == input[0][0]:
+            continue #ignore the "DC" value
         a = z.real
         b = z.imag
     

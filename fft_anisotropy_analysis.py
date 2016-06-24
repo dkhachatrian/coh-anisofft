@@ -74,6 +74,7 @@ A_er = numpy.ndarray(intensities.shape)
 
 for i in range(0, numx):
     for j in range(0, numy):
+        print('Working on x,y-slice (' + str(i) + ',' + str(j) + ')...')
         roi = t.create_windowed_roi(input=data, startx=i*roix, starty=j*roiy, width=roix, height=roiy) #take subsections, have them normalized
         roi_f = numpy.fft.fftn(roi, s=None, axes=None, norm=None) #perform discrete Fourier transform on ROI
         #could potentially do a real FFT/Hermitian FFT. Could save computational time?
@@ -81,26 +82,23 @@ for i in range(0, numx):
         
         # create radial histogram/profile ## TODO: Why? How?
         
-        #P = np.abs(A)**2 #power spectrum
         
         roi_f_g = roi_f[0:roi_f.shape[0]/2, 0:roi_f.shape[1]/2] #crop out the redundant negative ferquencies, and the Nyquist frequency (if the axis is even), to leave only the entries whose values have meaning
         
         n_b = 100 #number of bins to divide the frequencies up (since)
         
-        p_spec = t.compute_power_matrix(input=roi_f_g, n_bins = n_b)
+        #print('Before power matrix computation.')
+        P = t.compute_power_matrix(input=roi_f_g, n_bins = n_b)
+        #print('After power matrix computation.')
         
-        P = numpy.transpose(numpy.array([p_x, p_y])) #something seems off... That I have to transpose
-        
-        cov = numpy.dot(numpy.transpose(P), P) / P.shape[1] #obtain the covariance matrix, an roix-by-roix matrix
-        #but how to normalize? This is correct
+        cov = numpy.dot(P, numpy.transpose(P)) / P.shape[1] #obtain the covariance matrix, a 2-by-2 matrix for a 2D image
+        #but how to normalize? Is this correct?
+        #Also, I keep having to flip the order of multiplication... Something seems fishy...
         
         #evals,evecs = numpy.linalg.eig(cov)
         
         evals_arr, evecs_arr = numpy.linalg.eig(cov)
         estuff = list(zip(evals_arr, evecs_arr))  #build up list of tuples of eignevalues and eigenvectors
-        
-#        for i in range(len(evals_arr)): #len(evals_arr) == len(evecs_arr), always
-#            estuff.append(tuple(zip(evals_arr[i],evecs_arr[i]))) #build up list of tuples of eignevalues and eigenvectors
         
         estuff = sorted(estuff, key= lambda tup: tup[0]) #sort eigenvalues in ascending order, moving eigenvectors along with them
         
