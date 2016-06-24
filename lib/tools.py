@@ -6,6 +6,7 @@ Created on Tue Jun 21 14:06:17 2016
 """
 
 import numpy
+from matplotlib import pyplot
 
 #
 #class roi:
@@ -117,7 +118,7 @@ def compute_power_matrix(input, n_bins):
         # This goes into the spirit of averaging over the entire region of interest. We're nont worried about local fluctuation within the ROI as a result of different spatial-frequency vavlues; we're more interested in understanding, when looking at the entire ROI, which direction corresponds to the most anisotropy, and how significantly different is that direction from its orthogonal direction?
       
     
-    dtheta = 2*numpy.pi/n_bins
+    dtheta = 360/n_bins
     power_sum = numpy.zeros([2,n_bins])
     
     
@@ -141,17 +142,7 @@ def compute_power_matrix(input, n_bins):
             continue
         
         #get the sinusoid's phase
-        phase = 0
-        
-        if a == 0:  #special case to avoid division by zero
-            if b > 0:
-                phase = numpy.pi * 1/2
-            elif b < 0:
-                phase = numpy.pi * 3/2
-            #else:
-            #    print('Fourier transform spat out a sinusoid term with no amplitude or phase!')
-        else:
-            phase = numpy.arctan(b/a)
+        phase = get_orientation(a,b)
         
         phase -= numpy.pi * 1/2 #shift from sine shift to cosine shift
         if phase < 0:
@@ -204,13 +195,26 @@ def perform_pca(M):
     return estuff #still not entirely sure why I needed to "re-store" estuff before returning the sorted list, instead of just returning sorted(...) ...
     
     
-def get_orientation(estuff):
+def get_evec_orientation(estuff):
     """ From a list of tuples of (eigenvalue, eigenvector), get the orientation of the eigenvector corresponding to the largest eigenvector. The orientation is returned in degrees, measured against the +x direction, and is bounded by [-pi, pi].
     PRECONDITION: the list of tuples (estuff) is already sorted in *ascending* order."""
     
     v = estuff[-1][1]
     x = v[0]
     y = v[1]
+    
+    theta = get_orientation(x,y)
+    
+    theta += 90 #to account for the "pi/2 phase shift between Fourier space and Cartesian space"
+
+#    if theta < 0 and theta > -90:
+#        theta += 90 #to account for the "pi/2 phase shift between Fourier space and Cartesian space"
+        #TODO: *Why* is there a phase shift between Fourier space and Cartesian space?
+    
+    return theta
+    
+def get_orientation(x,y):
+    """Get orientation of vector with Cartesian components x and y. The orientation is returned in degrees, measured against the +x direction, and is bounded by [-pi, pi]."""
     
     theta = 0.0
     #deal with special cases
@@ -234,8 +238,62 @@ def get_orientation(estuff):
     
     theta *= (180 / numpy.pi)
     
-    if theta < 0 and theta > -90:
-        theta += 90 #to account for the "pi/2 phase shift between Fourier space and Cartesian space"
-        #TODO: *Why* is there a phase shift between Fourier space and Cartesian space?
-    
     return theta
+    
+    
+
+
+
+def plot_vector_field(vec_arr, lens, deltas):
+    """ Plots the array of vectors passed into the function using pyplot. """
+    
+    n_x = lens[0] # == vec_arr.shape[-1], I think
+    n_y = lens[1] # == vec_arr.shape[-2], I think
+    dx = deltas[0]
+    dy = deltas[1]
+    
+    v_x = [[vec_arr[j][i][0] for i in range(n_x)] for j in range(n_y)]
+    v_y = [[vec_arr[j][i][1] for i in range(n_x)] for j in range(n_y)]
+    
+    # starting coordinates (offset)
+    X = [[i*dx for i in range(n_x)] for j in range(n_y)]
+    Y = [[j*dy for i in range(n_x)] for j in range(n_y)]
+    
+    # ending coordinates
+    U = X + v_x
+    V = Y + v_y
+    
+    #reflectc Y-axis, so that the relative locations match up with their ROIs from the original image
+    Y = -Y
+    V = -V
+    
+    
+    # plot
+    pyplot.quiver(X,Y,U,V)
+    
+
+    
+    
+def _nd_window(data, filter_function):
+    """
+    Performs an in-place windowing on N-dimensional spatial-domain data.
+    This is done to mitigate boundary effects in the FFT.
+
+    Parameters
+    ----------
+    data : ndarray
+           Input data to be windowed, modified in place.
+    filter_function : 1D window generation function
+           Function should accept one argument: the window length.
+           Example: scipy.signal.hamming
+    """
+    #By msarahan (see http://stackoverflow.com/questions/27345861/extending-1d-function-across-3-dimensions-for-data-windowing).  (Original docstring above)
+    
+    for axis, axis_size in enumerate(data.shape):
+        # set up shape for numpy broadcasting
+        filter_shape = [1, ] * data.ndim
+        filter_shape[axis] = axis_size
+        window = filter_function(axis_size).reshape(filter_shape)
+        # scale the window intensities to maintain image intensity
+        np.power(window, (1.0/data.ndim), output=window)
+        data *= window

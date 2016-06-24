@@ -82,6 +82,7 @@ A_er = numpy.ndarray(intensities.shape) #anisotropy ratio
 C = numpy.ndarray(intensities.shape) #coherence
 E = numpy.ndarray(intensities.shape) #energy
 oris = numpy.ndarray(intensities.shape) #orientation
+evecs = [[[] for x in range(intensities.shape[-1])] for y in range(intensities.shape[-2])] #2D array of arrays. Will have eigenvectors
 roi_infos = [[{} for x in range(intensities.shape[-1])] for y in range(intensities.shape[-2])] #2D array for dicts. Will have labeled info
 
 for i in range(0, numx):
@@ -132,11 +133,16 @@ for i in range(0, numx):
         A_er[i][j] = t.aniso_ratio(lambda_max, lambda_min, intensities[i][j]) #populate A_er matrix using appropriate formula and weighting
         C[i][j] = coherence
         E[i][j] = energy
-        oris[i][j] = t.get_orientation(estuff)
+        oris[i][j] = t.get_evec_orientation(estuff)
+        evecs[i][j] = estuff[-1][1] #dominant eigenvector
 
         # Lump together relevant info into a dictionary for each ROI
         roi_info = {'aniso_ratio': A_er[i][j], 'coherence': coherence, 'energy': energy, 'orientation': oris[i][j]}
         roi_infos[i][j] = roi_info
+
+
+t.plot_vector_field(evec_arr = evecs, deltas = [roix, roiy])
+
 
 
 with open(os.path.join(outdir, 'aniso_ratios.txt'), 'wb') as outf: #needs to be in binary form to use numpy.savetxt
