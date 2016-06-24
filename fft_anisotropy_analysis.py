@@ -70,7 +70,7 @@ roiy = int(ysize / numy)
 
 intensities = t.calculate_relative_intensities(input=data, slice_numbers=(numx, numy))
 
-with open(os.path.join(outdir, 'eigenstuff.txt'), 'a') as outf:
+with open(os.path.join(outdir, 'eigenstuff.txt'), 'w') as outf:
     outf.write('Below are the eigenvalues and eigenvectors obtained for each region of interest. This analysis had ROIs that tiled the original image ' + str(numx) + ' times in the x-direction and ' + str(numy) + ' times in the y-direction.\n For more information, look into the comments of the Python script: \n\n\n')
 
 A_er = numpy.ndarray(intensities.shape)
