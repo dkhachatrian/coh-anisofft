@@ -7,6 +7,16 @@ Created on Tue Jun 21 14:06:17 2016
 
 import numpy
 
+#
+#class roi:
+#    def __init__(self, ori, coh, ener, anir):
+#        roi.orientation = ori
+#        roi.coherence = coh
+#        roi.energy = ener
+#        roi.aniso_ratio = anir
+
+
+
 
 def create_windowed_roi(input,startx,starty,width,height):
     """From a 2D array (input) containing brightness information of the original image, create a 2D array starting at the specified coordinates with the specified thicknesses, convoluted with a window function. Then, return the 2D array, normalized by having each element be the prior element's residual.
@@ -100,7 +110,8 @@ def calculate_relative_intensities(input, slice_numbers):
 
 def compute_power_matrix(input, n_bins):
     """ Takes in a matrix containing the complex values obtained from performing a Fourier Transform on a set of data, with redundant values (i.e. those values for frequencies above or equal to the Nyquist frequency) removed, input.
-    Returns an 2-by-n_bins matrix, with each column denoting the x- and y- components of the power of all frequencies within a particular phase shift range (with thickness of 2*pi/(n_bins)). """
+    Returns an 2-by-n_bins matrix, with each column denoting the x- and y- components of the power of all frequencies within a particular phase shift range (with thickness of 2*pi/(n_bins)).
+    With respect to the phase calculated, the angle is shifted by -pi/2 to indicate the phase of the equivalent cosine function (as opposed to the 'default' sine representation). This is to show the angle at which the change in brightness is maximal (cosine) instead of minimal (sine)."""
     
     # For some reason, we stop caring about the spatial-frequency of the funcctions from which the phase shift and amplitude originated?    
         # This goes into the spirit of averaging over the entire region of interest. We're nont worried about local fluctuation within the ROI as a result of different spatial-frequency vavlues; we're more interested in understanding, when looking at the entire ROI, which direction corresponds to the most anisotropy, and how significantly different is that direction from its orthogonal direction?
@@ -111,7 +122,10 @@ def compute_power_matrix(input, n_bins):
     
     
     #for every element in the frequency-representation of the original function
-    for z in numpy.nditer(input):
+
+    it = numpy.nditer(input, flags = ['multi_index'])    
+    
+    for z in it:
         if z == input[0][0]:
             continue #ignore the "DC" value
         a = z.real
@@ -122,9 +136,12 @@ def compute_power_matrix(input, n_bins):
         
 
         if power == 0:
-            print('Fourier transform spat out a sinusoid term with no amplitude or phase!') #should never be the case...
+            #the sinusoid with the frequency specified by the (i,j) coordinates has no power
+            # so it doesn't contribute to the power spectrum
+            continue
         
         #get the sinusoid's phase
+        phase = 0
         
         if a == 0:  #special case to avoid division by zero
             if b > 0:
@@ -135,6 +152,10 @@ def compute_power_matrix(input, n_bins):
             #    print('Fourier transform spat out a sinusoid term with no amplitude or phase!')
         else:
             phase = numpy.arctan(b/a)
+        
+        phase -= numpy.pi * 1/2 #shift from sine shift to cosine shift
+        if phase < 0:
+            phase += numpy.pi * 2 #shift to positive phase, to ensure proper placement into power-array
         
         #figure out which bin to place this element's power components; place it in
         i = phase / dtheta
@@ -151,8 +172,70 @@ def compute_power_matrix(input, n_bins):
     # We can look at the eigenvector corresponding to the dominant eigenvalue as the principal component, describing most of the covariance. This means it describes the most anisotropy, and its angle (obtained via the arctangent) describes the angle of most anisotropy
     
 
+def coherence(v1,v2):
+    """ Computes the coherence of two eigenvalues, v1 and v2. """
+    
+    return (max(v1,v2)-min(v1,v2))/(v1+v2)
+        
+        
+def aniso_ratio(v1,v2,i):
+    """ Computes the intensity-weighted anisotropic ratio from eigenvalues v1 and v2 and mean intensity i."""
+    return (1 - min(v1,v2)/max(v1,v2)) * i
 
-        
-        
+def perform_pca(M):
+    """ Perform principal component analysis on the matrix M.
+    Returns a list of tuples of (eigenvalue, eigenvector), sorted in ascending order of eigenvalue. (Eigenvectors have been normalized to unit vectors.)"""
+    
+    evals_arr, evecs_arr = numpy.linalg.eig(M)
+    
+    #TODO: clean up below code for normalizing eigenvectors?
+    
+    ezip = list(zip(evals_arr, evecs_arr))  #build up list of tuples of eignevalues and eigenvectors
+    estuff = []
+
+    for eval, evec in ezip:
+        l = numpy.sqrt(sum(evec**2)) #length of eigenvectcor
+        evec = evec / l #normalize eigenvectors to unit vectors       
+        estuff.append((eval,evec))
     
     
+    estuff = sorted(estuff, key= lambda tup: tup[0]) #sort eigenvalues in ascending order, moving eigenvectors along with them
+    
+    return estuff #still not entirely sure why I needed to "re-store" estuff before returning the sorted list, instead of just returning sorted(...) ...
+    
+    
+def get_orientation(estuff):
+    """ From a list of tuples of (eigenvalue, eigenvector), get the orientation of the eigenvector corresponding to the largest eigenvector. The orientation is returned in degrees, measured against the +x direction, and is bounded by [-pi, pi].
+    PRECONDITION: the list of tuples (estuff) is already sorted in *ascending* order."""
+    
+    v = estuff[-1][1]
+    x = v[0]
+    y = v[1]
+    
+    theta = 0.0
+    #deal with special cases
+    if x == 0:
+        if y > 0:
+            theta = numpy.pi / 2
+        elif y < 0:
+            theta = -numpy.pi / 2
+        else:
+            err = 'An eigenvector was the zero vector!'
+            print(err)
+            return None
+    else:
+        theta = numpy.arctan(y/x) #v[0] and v[1] are x- and y- components
+    
+    # Because arctan is bounded as (-pi/2, pi/2), need to consider x- and y- components to recover the proper angle
+    if (x < 0 and y > 0):
+        theta += numpy.pi
+    elif (x < 0 and y < 0):
+        theta -= numpy.pi
+    
+    theta *= (180 / numpy.pi)
+    
+    if theta < 0 and theta > -90:
+        theta += 90 #to account for the "pi/2 phase shift between Fourier space and Cartesian space"
+        #TODO: *Why* is there a phase shift between Fourier space and Cartesian space?
+    
+    return theta

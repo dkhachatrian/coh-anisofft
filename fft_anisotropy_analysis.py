@@ -20,7 +20,10 @@ import sys #to terminate early, if necessary
 import numpy #for fast Fourier Transform
 from PIL import Image
 from lib import tools as t
+#import json # to write roi struct to file
 
+
+numpy.set_printoptions(precision=2, suppress = True) #for easier-to-look-at numbbers when printing in pdb
 
 outdir = os.path.join(dname, 'outputs') #directory for output files
 
@@ -66,6 +69,8 @@ numy = int(iny)
 roix = int(xsize / numx) #roix = xsize for a given region of interest
 roiy = int(ysize / numy)
 
+
+
 #calculate unaltered mean intensities of the roi's, and the mean intensity of the entire image, to weight the anisotropy eigenvalue-ratio index later on
 
 intensities = t.calculate_relative_intensities(input=data, slice_numbers=(numx, numy))
@@ -73,7 +78,11 @@ intensities = t.calculate_relative_intensities(input=data, slice_numbers=(numx, 
 with open(os.path.join(outdir, 'eigenstuff.txt'), 'w') as outf:
     outf.write('Below are the eigenvalues and eigenvectors obtained for each region of interest. This analysis had ROIs that tiled the original image ' + str(numx) + ' times in the x-direction and ' + str(numy) + ' times in the y-direction.\n For more information, look into the comments of the Python script: \n\n\n')
 
-A_er = numpy.ndarray(intensities.shape)
+A_er = numpy.ndarray(intensities.shape) #anisotropy ratio
+C = numpy.ndarray(intensities.shape) #coherence
+E = numpy.ndarray(intensities.shape) #energy
+oris = numpy.ndarray(intensities.shape) #orientation
+roi_infos = [[{} for x in range(intensities.shape[-1])] for y in range(intensities.shape[-2])] #2D array for dicts. Will have labeled info
 
 for i in range(0, numx):
     for j in range(0, numy):
@@ -100,40 +109,50 @@ for i in range(0, numx):
         
         #evals,evecs = numpy.linalg.eig(cov)
         
-        evals_arr, evecs_arr = numpy.linalg.eig(cov)
         
+        estuff = t.perform_pca(cov)        
         
-        #TODO: clean up below code for normalizing eigenvectors?
-        
-        ezip = list(zip(evals_arr, evecs_arr))  #build up list of tuples of eignevalues and eigenvectors
-        estuff = []
 
-        for eval, evec in ezip:
-            l = numpy.sqrt(sum(evec**2)) #length of eigenvectcor
-            evec = evec / l #normalize eigenvectors to unit vectors       
-            estuff.append(zip(eval,evec))
+        lambda_max = estuff[-1][0]
+        lambda_min = estuff[0][0]
         
-        
-        estuff = sorted(estuff, key= lambda tup: tup[0]) #sort eigenvalues in ascending order, moving eigenvectors along with them
+        coherence = t.coherence(lambda_max, lambda_min)
+        energy = lambda_max + lambda_min
         
         #debugging...
         with open(os.path.join(outdir, 'eigenstuff.txt'), 'a') as outf:
-            outf.write(str(estuff)) #write resulting intensity array to file
+            outf.write(str(estuff) + '\n') #write resulting intensity array to file
+            #numpy.savetxt(fname = outf, X = estuff, delimiter = ' ')
+            #outf.write('\n')
+            outf.write('Coherence: ' + str(coherence) + '\n')
+            outf.write('Energy: ' + str(energy) + '\n')
             outf.write('\n\n')
         
-        
-        A_er[i][j] = (1 - abs(estuff[0][0]/estuff[-1][0])) * intensities[i][j] #populate A_er matrix using appropriate formula and weighting
-        #eigenvalues should already be working
-        
+        #populate matrices
+        A_er[i][j] = t.aniso_ratio(lambda_max, lambda_min, intensities[i][j]) #populate A_er matrix using appropriate formula and weighting
+        C[i][j] = coherence
+        E[i][j] = energy
+        oris[i][j] = t.get_orientation(estuff)
 
-with open(os.path.join(outdir, 'aniso_ratios.txt'), 'w') as outf:
-    outf.write(str(A_er)) #write resulting intensity array to file
+        # Lump together relevant info into a dictionary for each ROI
+        roi_info = {'aniso_ratio': A_er[i][j], 'coherence': coherence, 'energy': energy, 'orientation': oris[i][j]}
+        roi_infos[i][j] = roi_info
 
-with open(os.path.join(outdir, 'mean_intensities.txt'), 'w') as outf:
-    outf.write(str(intensities)) #write resulting intensity array to file
-    
 
-    
+with open(os.path.join(outdir, 'aniso_ratios.txt'), 'wb') as outf: #needs to be in binary form to use numpy.savetxt
+    numpy.savetxt(fname = outf, X = A_er, fmt = '%10.5f', delimiter = ' ')
+    #outf.write(str(A_er)) #write resulting intensity array to file
+
+with open(os.path.join(outdir, 'mean_intensities.txt'), 'wb') as outf: #needs to be in binary form to use numpy.savetxt
+    numpy.savetxt(fname = outf, X = intensities, fmt = '%10.5f', delimiter = ' ')
+    #outf.write(str(intensities)) #write resulting intensity array to file
+
+with open(os.path.join(outdir, 'orientatons.txt'), 'wb') as outf: #needs to be in binary form to use numpy.savetxt
+    numpy.savetxt(fname = outf, X = oris, fmt = '%10.5f', delimiter = ' ')
+
+with open(os.path.join(outdir, 'roi_infos.txt'), 'w') as outf: #needs to be in binary form to use numpy.savetxt
+    outf.write(str(roi_infos))
+
 
 print("Done!")
 
