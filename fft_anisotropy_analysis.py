@@ -18,6 +18,7 @@ os.chdir(dname)
 import sys #to terminate early, if necessary
 
 import numpy #for fast Fourier Transform
+from matplotlib import pyplot
 from PIL import Image
 from lib import tools as t
 #import json # to write roi struct to file
@@ -73,7 +74,7 @@ roiy = int(ysize / numy)
 
 #calculate unaltered mean intensities of the roi's, and the mean intensity of the entire image, to weight the anisotropy eigenvalue-ratio index later on
 
-intensities = t.calculate_relative_intensities(input=data, slice_numbers=(numx, numy))
+intensities = t.calculate_relative_intensities(input=data, slice_numbers=(numy, numx)) #have to list slice_numbers in "reverse" dimensional order
 
 with open(os.path.join(outdir, 'eigenstuff.txt'), 'w') as outf:
     outf.write('Below are the eigenvalues and eigenvectors obtained for each region of interest. This analysis had ROIs that tiled the original image ' + str(numx) + ' times in the x-direction and ' + str(numy) + ' times in the y-direction.\n For more information, look into the comments of the Python script: \n\n\n')
@@ -82,12 +83,16 @@ A_er = numpy.ndarray(intensities.shape) #anisotropy ratio
 C = numpy.ndarray(intensities.shape) #coherence
 E = numpy.ndarray(intensities.shape) #energy
 oris = numpy.ndarray(intensities.shape) #orientation
+#to plot a vector field, it's easier to store the x- and y- components in separate arrays. Later on, will zip together
+evecs_x = numpy.ndarray(intensities.shape)
+evecs_y = numpy.ndarray(intensities.shape)
+
 evecs = [[[] for x in range(intensities.shape[-1])] for y in range(intensities.shape[-2])] #2D array of arrays. Will have eigenvectors
 roi_infos = [[{} for x in range(intensities.shape[-1])] for y in range(intensities.shape[-2])] #2D array for dicts. Will have labeled info
 
 for i in range(0, numx):
     for j in range(0, numy):
-        print('Working on x,y-slice (' + str(i) + ',' + str(j) + ')...')
+        print('Working on x,y-slice (' + str(i+1) + ',' + str(j+1) + ')...')
         roi = t.create_windowed_roi(input=data, startx=i*roix, starty=j*roiy, width=roix, height=roiy) #take subsections, have them normalized
         roi_f = numpy.fft.fftn(roi, s=None, axes=None, norm=None) #perform discrete Fourier transform on ROI
         #could potentially do a real FFT/Hermitian FFT. Could save computational time?
@@ -130,18 +135,21 @@ for i in range(0, numx):
             outf.write('\n\n')
         
         #populate matrices
-        A_er[i][j] = t.aniso_ratio(lambda_max, lambda_min, intensities[i][j]) #populate A_er matrix using appropriate formula and weighting
-        C[i][j] = coherence
-        E[i][j] = energy
-        oris[i][j] = t.get_evec_orientation(estuff)
-        evecs[i][j] = estuff[-1][1] #dominant eigenvector
+        A_er[j][i] = t.aniso_ratio(lambda_max, lambda_min, intensities[j][i]) #populate A_er matrix using appropriate formula and weighting
+        C[j][i] = coherence
+        E[j][i] = energy
+        oris[j][i] = t.get_evec_orientation(estuff)
+        evecs[j][i] = estuff[-1][1] #dominant eigenvector
+        # break down into components; for plotting vector field
+        evecs_x[j][i], evecs_y[j][i] = estuff[-1][1][0], estuff[-1][1][1]
 
         # Lump together relevant info into a dictionary for each ROI
-        roi_info = {'aniso_ratio': A_er[i][j], 'coherence': coherence, 'energy': energy, 'orientation': oris[i][j]}
-        roi_infos[i][j] = roi_info
+        roi_info = {'aniso_ratio': A_er[j][i], 'coherence': coherence, 'energy': energy, 'orientation': oris[j][i]}
+        roi_infos[j][i] = roi_info
+
+#evecs = list(zip(evecs_x, evecs_y))
 
 
-t.plot_vector_field(evec_arr = evecs, deltas = [roix, roiy])
 
 
 
@@ -159,6 +167,18 @@ with open(os.path.join(outdir, 'orientatons.txt'), 'wb') as outf: #needs to be i
 with open(os.path.join(outdir, 'roi_infos.txt'), 'w') as outf: #needs to be in binary form to use numpy.savetxt
     outf.write(str(roi_infos))
 
+
+evec_field = t.plot_vector_field(vecs_x = evecs_x, vecs_y = evecs_y, lens = [numx, numy], deltas = [roix, roiy])
+
+print('A vector field of the eigenvectors derived from this analysis has been plotted, and orientation such that the vectors appear in the same relative location as the ROI it describes.')
+plot_mark = input("Would you like to view this vector field? (Y/N):")
+
+if plot_mark.lower() == 'y':
+    pyplot.show(evec_field)
+
+pyplot.savefig(os.path.join(outdir,'evec_field.pdf'), bbox_inches='tight')
+print('The eigenvector field has been saved in the outputs directory in rasterized form.')
+        
 
 print("Done!")
 

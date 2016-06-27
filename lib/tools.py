@@ -244,7 +244,7 @@ def get_orientation(x,y):
 
 
 
-def plot_vector_field(vec_arr, lens, deltas):
+def plot_vector_field(vecs_x, vecs_y, lens, deltas):
     """ Plots the array of vectors passed into the function using pyplot. """
     
     n_x = lens[0] # == vec_arr.shape[-1], I think
@@ -252,24 +252,28 @@ def plot_vector_field(vec_arr, lens, deltas):
     dx = deltas[0]
     dy = deltas[1]
     
-    v_x = [[vec_arr[j][i][0] for i in range(n_x)] for j in range(n_y)]
-    v_y = [[vec_arr[j][i][1] for i in range(n_x)] for j in range(n_y)]
+    #v_x = [[vec_arr[j][i][0] for i in range(n_x)] for j in range(n_y)]
+    #v_y = [[vec_arr[j][i][1] for i in range(n_x)] for j in range(n_y)]
     
-    # starting coordinates (offset)
-    X = [[i*dx for i in range(n_x)] for j in range(n_y)]
-    Y = [[j*dy for i in range(n_x)] for j in range(n_y)]
+    # starting coordinates (offset). +0.5*dd to put vector in center of ROI
+    X = numpy.array([[(i+0.5)*dx for i in range(n_x)] for j in range(n_y)])
+    Y = numpy.array([[(j+0.5)*dy for i in range(n_x)] for j in range(n_y)])
     
-    # ending coordinates
-    U = X + v_x
-    V = Y + v_y
+    ## ending coordinates
+    #U = X + vecs_x
+    #V = Y + vecs_y
+    #U = X + v_x
+    #V = Y + v_y
     
     #reflectc Y-axis, so that the relative locations match up with their ROIs from the original image
     Y = -Y
-    V = -V
+    #V = -V
     
     
     # plot
-    pyplot.quiver(X,Y,U,V)
+    return pyplot.quiver(X,Y,vecs_x, vecs_y)
+    #pyplot.show(plt)
+    
     
 
     
