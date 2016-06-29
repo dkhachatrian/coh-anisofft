@@ -318,10 +318,12 @@ def plot_vector_field(vecs_x, vecs_y, lens, deltas):
     
     
 def overlay_images(foreground, background):
-    """ Overlays images, with foreground taking precedence to background. """
+    """ Overlays images, with foreground taking precedence to background."""
+    #TODO: Allow multiple channels
     
     fg_resized = foreground.resize(background.size, resample = Image.NEAREST)
-    bg = background
+    #fg_L = fg_resized.convert('L')
+    bg = background.convert('RGBA') # hardcode, not good. TODO: make it match other image "naturally"
     
     #return bg.paste(fg_resized, (0, 0), fg_resized) #third parameter is the mask
     

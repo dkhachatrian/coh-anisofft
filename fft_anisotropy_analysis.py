@@ -184,12 +184,12 @@ if plot_mark.lower() == 'y':
 pyplot.savefig(os.path.join(outdir,'evec_field.pdf'), bbox_inches='tight')
 print('The eigenvector field has been saved in the outputs directory in rasterized form.')
 
-evec_field_img = os.path.join(outdir, 'evec_field.png')
-pyplot.savefig(evec_field_img, bbox_inches='tight')
-        
-merged = t.overlay_images(foreground = evec_field_img, background = im_orig)
-        
-merged.save(os.path.join(outdir,'merged.png'), 'PNG')
+evecfield_fp = os.path.join(outdir, 'evec_field.png')
+pyplot.savefig(evecfield_fp, bbox_inches='tight')
+
+with Image.open(evecfield_fp) as evec_field_img:
+    merged = t.overlay_images(foreground = evec_field_img, background = im_orig) #currently broken...
+    merged.save(os.path.join(outdir,'merged.png'), 'PNG')
 
 print("Done!")
 
