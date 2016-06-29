@@ -49,9 +49,11 @@ im = im_orig.convert('L') #convvert to grayscale
 # in grayscale: 0 = black, 255 = white
 data = numpy.array(im)
 
-# TODO: collapse below into a loop
+# TODO: collapse below into a loop?
+# TODO: Handle ValueError caused by trying to int(inx) invalid values of inx
 
 inx = input("Please state the number of regions of interest you would like to fit in the x-direction of the image. There must be no remainder. (Current x-size of image: " + str(int(xsize)) + "): \n")
+
 
 while (xsize % int(inx)) != 0:
     inx = input("Does not divide cleanly! Please try again. (Current x-size of image: " + str(int(xsize)) + "): \n")
@@ -138,10 +140,13 @@ for i in range(0, numx):
         A_er[j][i] = t.aniso_ratio(lambda_max, lambda_min, intensities[j][i]) #populate A_er matrix using appropriate formula and weighting
         C[j][i] = coherence
         E[j][i] = energy
-        oris[j][i] = t.get_evec_orientation(estuff)
+        evec = t.rotate_vector(v = estuff[-1][1], theta = 90) #rotate vector by 90 degrees, to "compensate for pi/2 shift between Fourier space and Cartesian space"
+        oris[j][i] = t.get_orientation(evec)
+        #oris[j][i] = t.get_evec_orientation(estuff)
         evecs[j][i] = estuff[-1][1] #dominant eigenvector
         # break down into components; for plotting vector field
-        evecs_x[j][i], evecs_y[j][i] = estuff[-1][1][0], estuff[-1][1][1]
+        evecs_x[j][i], evecs_y[j][i] = evec[0], evec[1]        
+        #evecs_x[j][i], evecs_y[j][i] = estuff[-1][1][0], estuff[-1][1][1]
 
         # Lump together relevant info into a dictionary for each ROI
         roi_info = {'aniso_ratio': A_er[j][i], 'coherence': coherence, 'energy': energy, 'orientation': oris[j][i]}
@@ -178,7 +183,13 @@ if plot_mark.lower() == 'y':
 
 pyplot.savefig(os.path.join(outdir,'evec_field.pdf'), bbox_inches='tight')
 print('The eigenvector field has been saved in the outputs directory in rasterized form.')
+
+evec_field_img = os.path.join(outdir, 'evec_field.png')
+pyplot.savefig(evec_field_img, bbox_inches='tight')
         
+merged = t.overlay_images(foreground = evec_field_img, background = im_orig)
+        
+merged.save(os.path.join(outdir,'merged.png'), 'PNG')
 
 print("Done!")
 

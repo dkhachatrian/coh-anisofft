@@ -5,8 +5,9 @@ Created on Tue Jun 21 14:06:17 2016
 @author: David
 """
 
-import numpy
+import numpy as np
 from matplotlib import pyplot
+from PIL import Image
 
 #
 #class roi:
@@ -23,14 +24,14 @@ def create_windowed_roi(input,startx,starty,width,height):
     """From a 2D array (input) containing brightness information of the original image, create a 2D array starting at the specified coordinates with the specified thicknesses, convoluted with a window function. Then, return the 2D array, normalized by having each element be the prior element's residual.
     The window function will be, by default, a Hamming function. (TODO: Look into other window functions.)"""
 
-    roi = numpy.ndarray([height, width]) #2D arrays always have the left-to-right selector as the last coordinate
+    roi = np.ndarray([height, width]) #2D arrays always have the left-to-right selector as the last coordinate
     
-    #winy = numpy.hamming(height)
-    #winx = numpy.hamming(width)
+    #winy = np.hamming(height)
+    #winx = np.hamming(width)
     
     # Rectangular Window
-    winy = numpy.ones(height)
-    winx = numpy.ones(width)
+    winy = np.ones(height)
+    winx = np.ones(width)
 
 #    h = hamming(n)
 #    ham2d = sqrt(outer(h,h))    
@@ -71,7 +72,7 @@ def calculate_relative_intensities(input, slice_numbers):
         print('The dimension of the input data array and the specified slice numbers do not match!')
         pass
     
-    intensities = numpy.ndarray(slice_numbers) #creates container for subsequent calculations
+    intensities = np.ndarray(slice_numbers) #creates container for subsequent calculations
     
     roi_sizes = []
 
@@ -80,7 +81,7 @@ def calculate_relative_intensities(input, slice_numbers):
     
     # roi_sizes = input.shape/slice_numbers #tuple/tuple division doesn't work :'(
     
-    roi = numpy.ndarray(roi_sizes) #gives the roi its proper shape
+    roi = np.ndarray(roi_sizes) #gives the roi its proper shape
     #TODO: check for rounding problems (since dividing ints by ints)
     
     total_sum = 0.0
@@ -118,13 +119,13 @@ def compute_power_matrix(input, n_bins):
         # This goes into the spirit of averaging over the entire region of interest. We're nont worried about local fluctuation within the ROI as a result of different spatial-frequency vavlues; we're more interested in understanding, when looking at the entire ROI, which direction corresponds to the most anisotropy, and how significantly different is that direction from its orthogonal direction?
       
     
-    dtheta = 360/n_bins
-    power_sum = numpy.zeros([2,n_bins])
+    dtheta = 360/n_bins #binning in units of degrees
+    power_sum = np.zeros([2,n_bins])
     
     
     #for every element in the frequency-representation of the original function
 
-    it = numpy.nditer(input, flags = ['multi_index'])    
+    it = np.nditer(input, flags = ['multi_index'])    
     
     for z in it:
         if z == input[0][0]:
@@ -142,11 +143,11 @@ def compute_power_matrix(input, n_bins):
             continue
         
         #get the sinusoid's phase
-        phase = get_orientation(a,b)
+        phase = get_orientation([a,b])
         
-        phase -= numpy.pi * 1/2 #shift from sine shift to cosine shift
+        phase -= np.pi * 1/2 #shift from sine shift to cosine shift
         if phase < 0:
-            phase += numpy.pi * 2 #shift to positive phase, to ensure proper placement into power-array
+            phase += np.pi * 2 #shift to positive phase, to ensure proper placement into power-array
         
         #figure out which bin to place this element's power components; place it in
         i = phase / dtheta
@@ -177,7 +178,7 @@ def perform_pca(M):
     """ Perform principal component analysis on the matrix M.
     Returns a list of tuples of (eigenvalue, eigenvector), sorted in ascending order of eigenvalue. (Eigenvectors have been normalized to unit vectors.)"""
     
-    evals_arr, evecs_arr = numpy.linalg.eig(M)
+    evals_arr, evecs_arr = np.linalg.eig(M)
     
     #TODO: clean up below code for normalizing eigenvectors?
     
@@ -185,7 +186,7 @@ def perform_pca(M):
     estuff = []
 
     for eval, evec in ezip:
-        l = numpy.sqrt(sum(evec**2)) #length of eigenvectcor
+        l = np.sqrt(sum(evec**2)) #length of eigenvectcor
         evec = evec / l #normalize eigenvectors to unit vectors       
         estuff.append((eval,evec))
     
@@ -205,38 +206,79 @@ def get_evec_orientation(estuff):
     
     theta = get_orientation(x,y)
     
-    theta += 90 #to account for the "pi/2 phase shift between Fourier space and Cartesian space"
+    #theta += 90 #to account for the "pi/2 phase shift between Fourier space and Cartesian space"
 
 #    if theta < 0 and theta > -90:
 #        theta += 90 #to account for the "pi/2 phase shift between Fourier space and Cartesian space"
         #TODO: *Why* is there a phase shift between Fourier space and Cartesian space?
     
     return theta
+
+def rotate_array(arr, theta, dim = [0,1]):
+    """ Rotate all vectors (denoted by a 1D array) in a 2D list by an angle theta degrees about a plan specified by dim.
+    dim is a list containing the two indices of the axes of the plane around which the vector should be rotated. By default, will rotate about the first two components of the vector (i.e., usually the x- and y- components). """
     
-def get_orientation(x,y):
-    """Get orientation of vector with Cartesian components x and y. The orientation is returned in degrees, measured against the +x direction, and is bounded by [-pi, pi]."""
+    return [rotate_vector(v, theta, dim) for v in arr]
+    # Can I just say how much I love Python and its list comprehensions? Because it's a lot.
+
+def rotate_vector(v, theta, dim = [0,1]):
+    """ Given a vector v (denoted by 1D array v), return a vector rotated by theta degrees about a plane specified by dim.
+    dim is a list containing the two indices of the axes of the plane around which the vector should be rotated. By default, will rotate about the first two components of the vector (i.e., usually the x- and y- components). """
+    # TODO; Could generalize to perform rotations about arbitrary planes. Not yet necessary though.
+    
+    theta = theta * 180 / np.pi #convert to radians for creating proper matrix
+    
+    #indices of components
+    d1 = dim[0]
+    d2 = dim[1]    
+    
+    sl = np.array([v[d1],v[d2]]) #create "slice" to be rotated
+    
+    #build rotation matrix
+    rot = np.ndarray((2,2))
+    rot[0][0] = np.sin(theta)
+    rot[1][0] = -np.cos(theta)
+    rot[0][1] = np.cos(theta)
+    rot[1][1] = np.sin(theta)
+    
+    #get rotated components
+    out = np.dot(rot, sl)
+    
+    #replace original vector components with rotated components
+    v[d1] = out[0]
+    v[d2] = out[1]
+    
+    return v
+
+
+
+def get_orientation(v):
+    """Get orientation of vector v (described as a list or array). The orientation is returned in degrees, measured against the +x direction, and is bounded by [-pi, pi]."""
+    # get components from vector
+    x = v[0]
+    y = v[1]    
     
     theta = 0.0
     #deal with special cases
     if x == 0:
         if y > 0:
-            theta = numpy.pi / 2
+            theta = np.pi / 2
         elif y < 0:
-            theta = -numpy.pi / 2
+            theta = -np.pi / 2
         else:
             err = 'An eigenvector was the zero vector!'
             print(err)
             return None
     else:
-        theta = numpy.arctan(y/x) #v[0] and v[1] are x- and y- components
+        theta = np.arctan(y/x) #v[0] and v[1] are x- and y- components
     
     # Because arctan is bounded as (-pi/2, pi/2), need to consider x- and y- components to recover the proper angle
     if (x < 0 and y > 0):
-        theta += numpy.pi
+        theta += np.pi
     elif (x < 0 and y < 0):
-        theta -= numpy.pi
+        theta -= np.pi
     
-    theta *= (180 / numpy.pi)
+    theta *= (180 / np.pi)
     
     return theta
     
@@ -256,8 +298,8 @@ def plot_vector_field(vecs_x, vecs_y, lens, deltas):
     #v_y = [[vec_arr[j][i][1] for i in range(n_x)] for j in range(n_y)]
     
     # starting coordinates (offset). +0.5*dd to put vector in center of ROI
-    X = numpy.array([[(i+0.5)*dx for i in range(n_x)] for j in range(n_y)])
-    Y = numpy.array([[(j+0.5)*dy for i in range(n_x)] for j in range(n_y)])
+    X = np.array([[(i+0.5)*dx for i in range(n_x)] for j in range(n_y)])
+    Y = np.array([[(j+0.5)*dy for i in range(n_x)] for j in range(n_y)])
     
     ## ending coordinates
     #U = X + vecs_x
@@ -275,7 +317,19 @@ def plot_vector_field(vecs_x, vecs_y, lens, deltas):
     #pyplot.show(plt)
     
     
-
+def overlay_images(foreground, background):
+    """ Overlays images, with foreground taking precedence to background. """
+    
+    fg_resized = foreground.resize(background.size, resample = Image.NEAREST)
+    bg = background
+    
+    #return bg.paste(fg_resized, (0, 0), fg_resized) #third parameter is the mask
+    
+    merged = Image.alpha_composite(fg_resized, bg)
+    
+    return merged
+    
+    
     
     
 def _nd_window(data, filter_function):
