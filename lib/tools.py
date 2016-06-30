@@ -8,6 +8,9 @@ Created on Tue Jun 21 14:06:17 2016
 import numpy as np
 from matplotlib import pyplot
 from PIL import Image
+from matplotlib import colors # for matplotlib.colors.rgb_to_hsv(arr)
+
+#import colorsys #for HSV-RGB conversion
 
 #
 #class roi:
@@ -227,16 +230,14 @@ def perform_pca(M):
     
     #TODO: clean up below code for normalizing eigenvectors?
     
+    # Normalize eigenvector lengths
+    for v in evecs_arr:
+        v /= (np.linalg.norm(v) * 1)
+    
     ezip = list(zip(evals_arr, evecs_arr))  #build up list of tuples of eignevalues and eigenvectors
-    estuff = []
 
-    for eval, evec in ezip:
-        l = np.sqrt(sum(evec**2)) #length of eigenvectcor
-        evec = evec / l #normalize eigenvectors to unit vectors       
-        estuff.append((eval,evec))
-    
-    
-    estuff = sorted(estuff, key= lambda tup: tup[0]) #sort eigenvalues in ascending order, moving eigenvectors along with them
+
+    estuff = sorted(ezip, key= lambda tup: tup[0]) #sort eigenvalues in ascending order, moving eigenvectors along with them
     
     return estuff #still not entirely sure why I needed to "re-store" estuff before returning the sorted list, instead of just returning sorted(...) ...
     
@@ -416,7 +417,61 @@ def overlay_images(foreground, background):
 #### Image Channel-Related Functions #####
 ##########################################
 
+def array_to_image_channel(data, SCALE_MAX = 2**8 - 1, max_value = None, dtype = int):
+    """ Returns an array of data (a numpy array) normalized to a scale denoted by SCALE_MAX (255 by default). Scaling is done linearly.
+    max_value is the value that maps to SCALE_MAX. If max_value is not specified, the maximum of the dataset's array is used.
+    dtype determines the datatype of the resulting array. By default, it is int."""
+    
+    if SCALE_MAX == None:    
+        SCALE_MAX = 2**8 - 1
+    
+    if max_value == None:
+        max_value = max(data)
+    
+    scalar = SCALE_MAX/max_value
+    
+    out = data * scalar
+    
+    out.asarray(dtype) #convert from flaot64 to ints between 0-255
+    return out
 
 
+def create_hsv_array(hues, saturations, values, original_image = None):
+    """ Inputs: 2D Numpy arrays (normalized or not) with the same dimensions as the final image will have, to represent HSV tuples at each pixel.
+    The original image on which analysis has presumably been performed to obtain analytically interesting arrays for the 2D Numpy arrays. If any of the arrays are not specified, the corresponding value from the original image will be used instead.
+    Outputs: a 2D Numpy array of 3-element arrays, that can be converted pixelwise to RGB using, e.g., colorsys.hsv_to_rgb, and saved as an Image using the PIL module."""
+    
+    g = [hues, saturations, values]
+    scale_maxes = [np.pi, 255, 255]
+    value_maxes = [np.pi, max(saturations), max(values)]
+    dtypes = [float, int, int]
+        
+    # ensure lists can be zipped
+    if hues.shape != saturations.shape or saturations.shape != values.shape:
+        print('Not every pixel has a hue, saturation, and brightness value!')
+
+    zipped = zip(g, scale_maxes, value_maxes, dtypes)
+    
+    #rescaled_list = []
+    
+    
+    # collect rescaled arrays
+    for i,a,s,v,d in enumerate(zipped):
+        g[i] = array_to_image_channel(data = a, SCALE_MAX = s, max_value = v, dtype = d)
+        
+    # zip together arrays
+
+    hsv = list(zip(g[0], g[1], g[2]))
+    
+    
+    
+    return hsv
+        
+#    # create a new 2D array of arrays
+#    new_dims = list(list(hues.shape).append(3)) # '3' because there are H-S-V values at each pixel
 
 
+def hsv_to_rgb(data):
+    """ Converts a NumPy array of HSV values into RGB values (to use PIL to output an Image). """
+    return colors.hsv_to_rgb(data)
+    

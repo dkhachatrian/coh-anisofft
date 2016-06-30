@@ -84,7 +84,7 @@ with open(os.path.join(outdir, 'eigenstuff.txt'), 'w') as outf:
 A_er = numpy.ndarray(intensities.shape) #anisotropy ratio
 C = numpy.ndarray(intensities.shape) #coherence
 E = numpy.ndarray(intensities.shape) #energy
-oris = numpy.ndarray(intensities.shape) #orientation
+oris = numpy.ndarray(intensities.shape) #orientation. Saved as degrees
 #to plot a vector field, it's easier to store the x- and y- components in separate arrays. Later on, will zip together
 evecs_x = numpy.ndarray(intensities.shape)
 evecs_y = numpy.ndarray(intensities.shape)
