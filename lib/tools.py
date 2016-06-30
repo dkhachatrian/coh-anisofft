@@ -18,6 +18,36 @@ from PIL import Image
 #        roi.aniso_ratio = anir
 
 
+################################
+#### ROI-Related Functions #####
+################################
+
+
+def _nd_window(data, filter_function):
+    """
+    Performs an in-place windowing on N-dimensional spatial-domain data.
+    This is done to mitigate boundary effects in the FFT.
+
+    Parameters
+    ----------
+    data : ndarray
+           Input data to be windowed, modified in place.
+    filter_function : 1D window generation function
+           Function should accept one argument: the window length.
+           Example: scipy.signal.hamming
+    """
+    #By msarahan (see http://stackoverflow.com/questions/27345861/extending-1d-function-across-3-dimensions-for-data-windowing).  (Original docstring above)
+    
+    for axis, axis_size in enumerate(data.shape):
+        # set up shape for numpy broadcasting
+        filter_shape = [1, ] * data.ndim
+        filter_shape[axis] = axis_size
+        window = filter_function(axis_size).reshape(filter_shape)
+        # scale the window intensities to maintain image intensity
+        np.power(window, (1.0/data.ndim), output=window)
+        data *= window
+
+
 
 
 def create_windowed_roi(input,startx,starty,width,height):
@@ -60,7 +90,7 @@ def create_windowed_roi(input,startx,starty,width,height):
             roi[j][i] -= mean #replace original value with its residual, normalizing the array
     
     return roi
-    
+
 
 def calculate_relative_intensities(input, slice_numbers):
     """Input a n-dimentionsal array, and the number of subregions to be made (in a list of ints, n_slices; e.g., [2,3] would divide the original image into 6 rectangles, 2 fitting in the x-direction and 3 fitting in the y-direction). Return an n-dimensional array with the mean intensities of each subregion, relative to the mean intensity of the entire image.
@@ -109,6 +139,19 @@ def calculate_relative_intensities(input, slice_numbers):
     
     return intensities
     
+
+
+
+
+
+
+
+
+################################
+#### FFT-Related Functions #####
+################################
+
+
 
 def compute_power_matrix(input, n_bins):
     """ Takes in a matrix containing the complex values obtained from performing a Fourier Transform on a set of data, with redundant values (i.e. those values for frequencies above or equal to the Nyquist frequency) removed, input.
@@ -163,16 +206,18 @@ def compute_power_matrix(input, n_bins):
     # We can then use principal component analysis to obtain eigenvalues and eigenvectors describing the directions in which most of the variance in the power covariance matrix can be described.
     # We can look at the eigenvector corresponding to the dominant eigenvalue as the principal component, describing most of the covariance. This means it describes the most anisotropy, and its angle (obtained via the arctangent) describes the angle of most anisotropy
     
-
-def coherence(v1,v2):
-    """ Computes the coherence of two eigenvalues, v1 and v2. """
     
-    return (max(v1,v2)-min(v1,v2))/(v1+v2)
-        
-        
-def aniso_ratio(v1,v2,i):
-    """ Computes the intensity-weighted anisotropic ratio from eigenvalues v1 and v2 and mean intensity i."""
-    return (1 - min(v1,v2)/max(v1,v2)) * i
+    
+
+
+
+
+
+
+################################
+#### PCA-Related Functions #####
+################################
+
 
 def perform_pca(M):
     """ Perform principal component analysis on the matrix M.
@@ -195,24 +240,50 @@ def perform_pca(M):
     
     return estuff #still not entirely sure why I needed to "re-store" estuff before returning the sorted list, instead of just returning sorted(...) ...
     
-    
-def get_evec_orientation(estuff):
-    """ From a list of tuples of (eigenvalue, eigenvector), get the orientation of the eigenvector corresponding to the largest eigenvector. The orientation is returned in degrees, measured against the +x direction, and is bounded by [-pi, pi].
-    PRECONDITION: the list of tuples (estuff) is already sorted in *ascending* order."""
-    
-    v = estuff[-1][1]
-    x = v[0]
-    y = v[1]
-    
-    theta = get_orientation(x,y)
-    
-    #theta += 90 #to account for the "pi/2 phase shift between Fourier space and Cartesian space"
 
-#    if theta < 0 and theta > -90:
-#        theta += 90 #to account for the "pi/2 phase shift between Fourier space and Cartesian space"
-        #TODO: *Why* is there a phase shift between Fourier space and Cartesian space?
+
+######################################################
+#### Non-Orientation-Related Parameter Functions #####
+######################################################
+
     
-    return theta
+def coherence(v1,v2):
+    """ Computes the coherence of two eigenvalues, v1 and v2. """
+    
+    return (max(v1,v2)-min(v1,v2))/(v1+v2)
+        
+        
+def aniso_ratio(v1,v2,i):
+    """ Computes the intensity-weighted anisotropic ratio from eigenvalues v1 and v2 and mean intensity i."""
+    return (1 - min(v1,v2)/max(v1,v2)) * i
+
+
+    
+#def get_evec_orientation(estuff):
+#    """ From a list of tuples of (eigenvalue, eigenvector), get the orientation of the eigenvector corresponding to the largest eigenvector. The orientation is returned in degrees, measured against the +x direction, and is bounded by [-pi, pi].
+#    PRECONDITION: the list of tuples (estuff) is already sorted in *ascending* order."""
+#    
+#    v = estuff[-1][1]
+#    x = v[0]
+#    y = v[1]
+#    
+#    theta = get_orientation(x,y)
+#    
+#    #theta += 90 #to account for the "pi/2 phase shift between Fourier space and Cartesian space"
+#
+##    if theta < 0 and theta > -90:
+##        theta += 90 #to account for the "pi/2 phase shift between Fourier space and Cartesian space"
+#        #TODO: *Why* is there a phase shift between Fourier space and Cartesian space?
+#    
+#    return theta
+
+
+
+#############################
+#### Rotation Functions #####
+#############################
+
+
 
 def rotate_array(arr, theta, dim = [0,1]):
     """ Rotate all vectors (denoted by a 1D array) in a 2D list by an angle theta degrees about a plan specified by dim.
@@ -284,6 +355,9 @@ def get_orientation(v):
     
     
 
+########################################
+#### Vector-Field/Figure Functions #####
+########################################
 
 
 def plot_vector_field(vecs_x, vecs_y, lens, deltas):
@@ -315,7 +389,10 @@ def plot_vector_field(vecs_x, vecs_y, lens, deltas):
     # plot
     return pyplot.quiver(X,Y,vecs_x, vecs_y)
     #pyplot.show(plt)
-    
+
+
+
+
     
 def overlay_images(foreground, background):
     """ Overlays images, with foreground taking precedence to background."""
@@ -324,36 +401,22 @@ def overlay_images(foreground, background):
     fg_resized = foreground.resize(background.size, resample = Image.NEAREST)
     #fg_L = fg_resized.convert('L')
     bg = background.convert('RGBA') # hardcode, not good. TODO: make it match other image "naturally"
-    
+    fg = fg_resized.convert('RGBA')
     #return bg.paste(fg_resized, (0, 0), fg_resized) #third parameter is the mask
     
-    merged = Image.alpha_composite(fg_resized, bg)
+    merged = Image.alpha_composite(fg, bg)
     
     return merged
     
     
     
     
-def _nd_window(data, filter_function):
-    """
-    Performs an in-place windowing on N-dimensional spatial-domain data.
-    This is done to mitigate boundary effects in the FFT.
-
-    Parameters
-    ----------
-    data : ndarray
-           Input data to be windowed, modified in place.
-    filter_function : 1D window generation function
-           Function should accept one argument: the window length.
-           Example: scipy.signal.hamming
-    """
-    #By msarahan (see http://stackoverflow.com/questions/27345861/extending-1d-function-across-3-dimensions-for-data-windowing).  (Original docstring above)
     
-    for axis, axis_size in enumerate(data.shape):
-        # set up shape for numpy broadcasting
-        filter_shape = [1, ] * data.ndim
-        filter_shape[axis] = axis_size
-        window = filter_function(axis_size).reshape(filter_shape)
-        # scale the window intensities to maintain image intensity
-        np.power(window, (1.0/data.ndim), output=window)
-        data *= window
+##########################################
+#### Image Channel-Related Functions #####
+##########################################
+
+
+
+
+
