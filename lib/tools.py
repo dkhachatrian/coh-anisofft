@@ -47,9 +47,8 @@ def _nd_window(data, filter_function):
         filter_shape[axis] = axis_size
         window = filter_function(axis_size).reshape(filter_shape)
         # scale the window intensities to maintain image intensity
-        np.power(window, (1.0/data.ndim), output=window)
+        np.power(window, (1.0/data.ndim), out=window)
         data *= window
-
 
 
 
@@ -69,7 +68,7 @@ def create_windowed_roi(input,startx,starty,width,height):
 #    h = hamming(n)
 #    ham2d = sqrt(outer(h,h))    
     
-    
+#    win = _nd_window(roi, np.hamming)
         
     mean = 0.0 #to be subtracted off each element
 
@@ -78,6 +77,7 @@ def create_windowed_roi(input,startx,starty,width,height):
     #convolute with window function
     for i in range(roi.shape[-1]):
         for j in range(roi.shape[-2]):
+            #roi[j][i] = roi[j][i]*win[j][i]
             roi[j][i] = roi[j][i]*winx[i]*winy[j]
             mean += roi[j][i]
 #    
@@ -222,7 +222,7 @@ def compute_power_matrix(input, n_bins):
 ################################
 
 
-def perform_pca(M):
+def perform_pca(M): ### PCA? singular-value decomposition? Directional derivative?
     """ Perform principal component analysis on the matrix M.
     Returns a list of tuples of (eigenvalue, eigenvector), sorted in ascending order of eigenvalue. (Eigenvectors have been normalized to unit vectors.)"""
     
@@ -432,38 +432,49 @@ def array_to_image_channel(data, SCALE_MAX = 2**8 - 1, max_value = None, dtype =
     
     out = data * scalar
     
-    out.asarray(dtype) #convert from flaot64 to ints between 0-255
-    return out
+    return out.astype(dtype) #convert from flaot64 to appropriate dtype
 
 
-def create_hsv_array(hues, saturations, values, original_image = None):
+def create_hsv_array(hues = None, saturations = None, values = None, original_image = None):
     """ Inputs: 2D Numpy arrays (normalized or not) with the same dimensions as the final image will have, to represent HSV tuples at each pixel.
     The original image on which analysis has presumably been performed to obtain analytically interesting arrays for the 2D Numpy arrays. If any of the arrays are not specified, the corresponding value from the original image will be used instead.
     Outputs: a 2D Numpy array of 3-element arrays, that can be converted pixelwise to RGB using, e.g., colorsys.hsv_to_rgb, and saved as an Image using the PIL module."""
-    
+    ### TODO: Make original_image values usable (especially if bands are not RGB or HSV)
     g = [hues, saturations, values]
     scale_maxes = [np.pi, 255, 255]
-    value_maxes = [np.pi, max(saturations), max(values)]
+    value_maxes = [180, saturations.max(), values.max()] #180 because oris is in degrees
     dtypes = [float, int, int]
-        
+    
+   # for a in g:    
+    
+    
     # ensure lists can be zipped
     if hues.shape != saturations.shape or saturations.shape != values.shape:
         print('Not every pixel has a hue, saturation, and brightness value!')
 
     zipped = zip(g, scale_maxes, value_maxes, dtypes)
     
-    #rescaled_list = []
-    
+    rl = [] #rescaled_list
+#    
+#    cart_prods = []
+#    
+#    for oi,av in zip(np.array(original_image).shape, hues.shape): #original image, analyzed values
+#        cart_prods.append(oi/av)
+#    
+#    cart_prods = np.array(cart_prods, dtype = int)
     
     # collect rescaled arrays
-    for i,a,s,v,d in enumerate(zipped):
-        g[i] = array_to_image_channel(data = a, SCALE_MAX = s, max_value = v, dtype = d)
+    for arr,s,v,d in zipped:
+        t = array_to_image_channel(data = arr, SCALE_MAX = s, max_value = v, dtype = d)
+        #t_extended = []
+        rl.append(t)
         
     # zip together arrays
 
-    hsv = list(zip(g[0], g[1], g[2]))
-    
-    
+    #for h,s,v in zip(rl[0],rl[1],rl[2]):
+        
+
+    hsv = np.dstack(rl)
     
     return hsv
         

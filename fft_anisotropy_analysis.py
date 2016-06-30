@@ -191,6 +191,25 @@ with Image.open(evecfield_fp) as evec_field_img:
     merged = t.overlay_images(foreground = evec_field_img, background = im_orig) #currently broken...
     merged.save(os.path.join(outdir,'merged.png'), 'PNG')
 
+
+## TODO: allow user to select what information to use for HSB/HSV
+# hues == orientations, saturations == coherencies, values == A_er
+
+hsv = t.create_hsv_array(hues = oris, saturations = C, values = A_er, original_image = im_orig)
+rgb = t.hsv_to_rgb(hsv)
+
+#fci = Image.fromarray(hsv, mode = 'HSV') #false-colored image
+fci = Image.fromarray(rgb, mode = 'RGB') #false-colored image
+fci = fci.resize(im_orig.size) #scale back up to original_image size
+
+fci.save(os.path.join(outdir, 'analyzed_image (xsize=' + inx + ',ysize=' + iny + ').jpg'))
+
+print("A falsely colored image has been created.") ## TODO: Make this more meaningful...
+
+
+
+
+
 print("Done!")
 
 #Perform anisotropy analysis at every pixel of the image
