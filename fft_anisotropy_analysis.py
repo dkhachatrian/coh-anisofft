@@ -39,6 +39,7 @@ im = im_orig.convert('L') #convvert to grayscale
 
 roix, roiy = t.get_ROI(im)
 
+
 numx = int(xsize/roix)
 numy = int(ysize/roiy)
 
@@ -182,7 +183,7 @@ rgb = t.hsv_to_rgb(hsv)
 fci = Image.fromarray(rgb, mode = 'RGB') #false-colored image
 fci = fci.resize(im_orig.size) #scale back up to original_image size
 
-fci.save(os.path.join(outdir, 'analyzed_image (xsize=' + inx + ',ysize=' + iny + ').jpg'))
+fci.save(os.path.join(outdir, 'analyzed_image (xsize=' + str(numx) + ',ysize=' + str(numy) + ').jpg'))
 
 print("A falsely colored image has been created.") ## TODO: Make this more meaningful...
 
