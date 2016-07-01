@@ -10,15 +10,62 @@ from matplotlib import pyplot
 from PIL import Image
 from matplotlib import colors # for matplotlib.colors.rgb_to_hsv(arr)
 
+import os
+import sys #to exit script if desired
+
 #import colorsys #for HSV-RGB conversion
 
-#
-#class roi:
-#    def __init__(self, ori, coh, ener, anir):
-#        roi.orientation = ori
-#        roi.coherence = coh
-#        roi.energy = ener
-#        roi.aniso_ratio = anir
+
+
+###################################
+#### User Interface Functions #####
+###################################
+
+
+def get_image(dep):
+    """ Prompts user for name of image. (Pass in the location of the dependencies folder.) """
+
+    image_name = input("Please state the full filename for the image of interest (located in the dependencies directory of this script), or enter nothing to quit: \n")
+    
+    while not os.path.isfile(os.path.join(dep, image_name)):
+        if image_name == '':
+            sys.exit()
+        image_name = input("File not found! Please check the spelling of the filename input. Re-enter filename (or enter no characters to quit): \n")
+    
+    im_orig = Image.open(os.path.join(dep, image_name))
+
+    return im_orig
+
+
+def get_ROI(im):
+    """ Determine size of ROI to be used. Also prompt whether to tile the image with the ROI (coarse; suitable for vector fields); or slide the ROI all around the image (for false-color imaging).
+    Pass in image to determine size."""
+    
+    # TODO: collapse below into a loop?
+    # TODO: Handle ValueError caused by trying to int(inx) invalid values of inx
+    
+    (xsize, ysize) = im.size #im is still an Image, and not an array
+    
+    
+    inx = input("Please state the number of regions of interest you would like to fit in the x-direction of the image. There must be no remainder. (Current x-size of image: " + str(int(xsize)) + "): \n")
+    
+    
+    while (xsize % int(inx)) != 0:
+        inx = input("Does not divide cleanly! Please try again. (Current x-size of image: " + str(int(xsize)) + "): \n")
+        
+    
+    iny = input("Please state the number of regions of interest you would like to fit in the y-direction of the image. There must be no remainder. (Current y-size of image: " + str(int(ysize)) + "): \n")
+    
+    while (ysize % int(iny)) != 0:
+        iny = input("Does not divide cleanly! Please try again. (Current y-size of image: " + str(int(ysize)) + "): \n")
+        
+    numx = int(inx)
+    numy = int(iny)
+
+    roix = int(xsize / numx) #roix = xsize for a given region of interest
+    roiy = int(ysize / numy)
+
+    return roix, roiy
 
 
 ################################

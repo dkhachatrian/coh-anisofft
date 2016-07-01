@@ -30,47 +30,27 @@ outdir = os.path.join(dname, 'outputs') #directory for output files
 
 #Take in image file, as bytearray
 
-#image_name = input("Please state the full filename for the image of interest (located in the dependencies directory of this script), or enter nothing to quit: \n")
-#
-#while not os.path.isfile(os.path.join(dep, image_name)):
-#    if image_name == '':
-#        sys.exit()
-#    image_name = input("File not found! Please check the spelling of the filename input. Re-enter filename (or enter no characters to quit): \n")
-#
-#im_orig = Image.open(os.path.join(dep, image_name))
 
-
-im_orig = Image.open(os.path.join(dep, 'test-orientation.tif'))
-
+im_orig = t.get_image(dep)
 im = im_orig.convert('L') #convvert to grayscale
 
 (xsize, ysize) = im.size #im is still an Image, and not an array
 
+
+roix, roiy = t.get_ROI(im)
+
+numx = int(xsize/roix)
+numy = int(ysize/roiy)
+
+
 # in grayscale: 0 = black, 255 = white
 data = numpy.array(im)
 
-# TODO: collapse below into a loop?
-# TODO: Handle ValueError caused by trying to int(inx) invalid values of inx
 
-inx = input("Please state the number of regions of interest you would like to fit in the x-direction of the image. There must be no remainder. (Current x-size of image: " + str(int(xsize)) + "): \n")
-
-
-while (xsize % int(inx)) != 0:
-    inx = input("Does not divide cleanly! Please try again. (Current x-size of image: " + str(int(xsize)) + "): \n")
-    
-
-iny = input("Please state the number of regions of interest you would like to fit in the y-direction of the image. There must be no remainder. (Current y-size of image: " + str(int(ysize)) + "): \n")
-
-while (ysize % int(iny)) != 0:
-    iny = input("Does not divide cleanly! Please try again. (Current y-size of image: " + str(int(ysize)) + "): \n")
-    
-numx = int(inx)
-numy = int(iny)
 #numx = 20
 #numy = 20
 
-roix = int(xsize / numx) #roix = xsize for a given region of interest
-roiy = int(ysize / numy)
+
 
 
 
@@ -206,12 +186,7 @@ fci.save(os.path.join(outdir, 'analyzed_image (xsize=' + inx + ',ysize=' + iny +
 
 print("A falsely colored image has been created.") ## TODO: Make this more meaningful...
 
-
-
-
-
 print("Done!")
 
-#Perform anisotropy analysis at every pixel of the image
-# im_d = Image.eval(im, anisotropy_analyze)
+
 
