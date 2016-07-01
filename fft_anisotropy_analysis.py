@@ -176,7 +176,7 @@ with Image.open(evecfield_fp) as evec_field_img:
 ## TODO: allow user to select what information to use for HSB/HSV
 # hues == orientations, saturations == coherencies, values == A_er
 
-hsv = t.create_hsv_array(hues = oris, saturations = C, values = A_er, original_image = im_orig)
+hsv = t.create_hsv_array(hues = oris, saturations = A_er, values = None, original_image = im_orig)
 rgb = t.hsv_to_rgb(hsv)
 
 #fci = Image.fromarray(hsv, mode = 'HSV') #false-colored image

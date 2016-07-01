@@ -487,17 +487,34 @@ def create_hsv_array(hues = None, saturations = None, values = None, original_im
     The original image on which analysis has presumably been performed to obtain analytically interesting arrays for the 2D Numpy arrays. If any of the arrays are not specified, the corresponding value from the original image will be used instead.
     Outputs: a 2D Numpy array of 3-element arrays, that can be converted pixelwise to RGB using, e.g., colorsys.hsv_to_rgb, and saved as an Image using the PIL module."""
     ### TODO: Make original_image values usable (especially if bands are not RGB or HSV)
+    
     g = [hues, saturations, values]
     scale_maxes = [np.pi, 255, 255]
-    value_maxes = [180, saturations.max(), values.max()] #180 because oris is in degrees
+    
+    #get scales, if applicable (i.e., if not being taken from original iamge)    
+    
+#    try:
+#        val_max = 180
+#    except AttributeError:
+#        val_max = -1    
+    
+    try:
+        sat_max = saturations.max()
+    except AttributeError:
+        sat_max = -1
+    
+    try:
+        val_max = values.max()
+    except AttributeError:
+        val_max = -1
+    
+    value_maxes = [180, sat_max, val_max] #180 because oris is in degrees
     dtypes = [float, int, int]
     
-   # for a in g:    
     
-    
-    # ensure lists can be zipped
-    if hues.shape != saturations.shape or saturations.shape != values.shape:
-        print('Not every pixel has a hue, saturation, and brightness value!')
+#    # ensure lists can be zipped
+#    if hues.shape != saturations.shape or saturations.shape != values.shape:
+#        print('Not every pixel has a hue, saturation, and brightness value!')
 
     zipped = zip(g, scale_maxes, value_maxes, dtypes)
     
@@ -510,23 +527,58 @@ def create_hsv_array(hues = None, saturations = None, values = None, original_im
 #    
 #    cart_prods = np.array(cart_prods, dtype = int)
     
+    # "invalid" array
+    invalid = np.ones([4,2]) - 43    
+    
     # collect rescaled arrays
     for arr,s,v,d in zipped:
-        t = array_to_image_channel(data = arr, SCALE_MAX = s, max_value = v, dtype = d)
-        #t_extended = []
+       # t = inv
+        if arr is not None: #None is the only object of the NoneType, so can (and should!) use 'is'
+            t = array_to_image_channel(data = arr, SCALE_MAX = s, max_value = v, dtype = d)
+        else:
+            t = invalid
         rl.append(t)
         
-    # zip together arrays
+    # take values from original image if appropriate
+    
+    # can probably use itertools to not need to make this list so explicitly...
+    options = ['h', 's', 'v']
+    cleaned = []
 
-    #for h,s,v in zip(rl[0],rl[1],rl[2]):
-        
+    for op,mat in zip(options,rl):
+        if np.array_equal(mat, invalid):
+            cleaned.append(get_hsv_channel_from(image = original_image, channel = op))
+        else:
+            #resize matrix to that of the original image
+            temp_im = Image.fromarray(mat) #convert to image
+            temp_im = temp_im.resize(original_image.size) #rescale to original image
+            cleaned.append(np.array(temp_im)) #conert back to matrix, and append
 
-    hsv = np.dstack(rl)
+    hsv = np.dstack(cleaned)
     
     return hsv
         
 #    # create a new 2D array of arrays
 #    new_dims = list(list(hues.shape).append(3)) # '3' because there are H-S-V values at each pixel
+
+
+def get_hsv_channel_from(image, channel):
+    """Get the channel ('h', 's', or 'v') denoted by channel from image. Return a 2D NumPy array of the channel. Image must be RGB, HSV, or 8-bit."""
+    
+    data = np.array(image)
+    if len(data.shape) == 2: #only one layer -- 8-bit
+        return data
+    
+    d = {'h': 0, 's': 1, 'v': 2}
+    
+    if image.mode == 'HSV':
+        ch = image.split()[d[channel]]
+        return np.array(ch)
+    elif image.mode == 'RGB':
+        im_con_d = colors.rgb_to_hsv(data) #3D array
+        im_con = Image.fromarray(im_con_d) #Image
+        ch = im_con.split()[d[channel]] #channel
+        return np.array(ch) #2D array (mask)
 
 
 def hsv_to_rgb(data):
