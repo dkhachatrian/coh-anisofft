@@ -99,7 +99,7 @@ def _nd_window(data, filter_function):
 
 
 
-def create_windowed_roi(input,startx,starty,width,height):
+def create_windowed_roi(data,startx,starty,width,height):
     """From a 2D array (input) containing brightness information of the original image, create a 2D array starting at the specified coordinates with the specified thicknesses, convoluted with a window function. Then, return the 2D array, normalized by having each element be the prior element's residual.
     The window function will be, by default, a Hamming function. (TODO: Look into other window functions.)"""
 
@@ -119,27 +119,31 @@ def create_windowed_roi(input,startx,starty,width,height):
         
     mean = 0.0 #to be subtracted off each element
 
-    roi = input[starty:starty+height, startx:startx+width]
+    roi = data[starty:starty+height, startx:startx+width].astype('float64') #'float64' for windowing below
+    _nd_window(roi, np.hamming)    #convolutes data with specified window function
     
-    #convolute with window function
-    for i in range(roi.shape[-1]):
-        for j in range(roi.shape[-2]):
-            #roi[j][i] = roi[j][i]*win[j][i]
-            roi[j][i] = roi[j][i]*winx[i]*winy[j]
-            mean += roi[j][i]
-#    
-#    for j in range(width):
-#        for i in range(height):
-#            roi[j][i] = winx[j]*winy[i]*input[starty+j][startx+i] #create windowed value
-#            mean += roi[j][i] #tally
-#    
-    mean /= roi.size
     
-    for i in range(roi.shape[-1]):
-        for j in range(roi.shape[-2]):
-            roi[j][i] -= mean #replace original value with its residual, normalizing the array
+#    #convolute with window function
+#    for i in range(roi.shape[-1]):
+#        for j in range(roi.shape[-2]):
+#            #roi[j][i] = roi[j][i]*win[j][i]
+#            roi[j][i] = roi[j][i]*winx[i]*winy[j]
+#            mean += roi[j][i]
+##    
+##    for j in range(width):
+##        for i in range(height):
+##            roi[j][i] = winx[j]*winy[i]*input[starty+j][startx+i] #create windowed value
+##            mean += roi[j][i] #tally
+##    
+    mean = roi.sum()/roi.size
+    roi -= mean #leaves only the residuals. For making covariance matrix
     
-    return roi
+#    for i in range(roi.shape[-1]):
+#        for j in range(roi.shape[-2]):
+##            roi[j][i] -= mean #replace original value with its residual, normalizing the array
+ 
+    return roi.astype('float64')   
+#    return roi.astype('uint8')
 
 
 def calculate_relative_intensities(input, slice_numbers):
@@ -238,12 +242,12 @@ def compute_power_matrix(input, n_bins):
         #get the sinusoid's phase
         phase = get_orientation([a,b])
         
-        phase -= np.pi * 1/2 #shift from sine shift to cosine shift
+        phase = phase - (0.5*180) #shift from sine shift to cosine shift
         if phase < 0:
-            phase += np.pi * 2 #shift to positive phase, to ensure proper placement into power-array
+            phase = phase + (2*180) #shift to positive phase, to ensure proper placement into power-array
         
         #figure out which bin to place this element's power components; place it in
-        i = phase / dtheta
+        i = int(phase / dtheta)
         power_sum[0][i] += a**2 #cosine of the power; the x-component of the power
         power_sum[1][i] += b**2 #sine of the power; the y-component of the power
     

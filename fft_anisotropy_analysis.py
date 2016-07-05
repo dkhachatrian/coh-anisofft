@@ -75,8 +75,8 @@ roi_infos = [[{} for x in range(intensities.shape[-1])] for y in range(intensiti
 
 for i in range(0, numx):
     for j in range(0, numy):
-        print('Working on x,y-slice (' + str(i+1) + ',' + str(j+1) + ')...')
-        roi = t.create_windowed_roi(input=data, startx=i*roix, starty=j*roiy, width=roix, height=roiy) #take subsections, have them normalized
+        print('Working on x,y-pixel (' + str(i+1) + ',' + str(j+1) + ')...')
+        roi = t.create_windowed_roi(data=data, startx=i*roix, starty=j*roiy, width=roix, height=roiy) #take subsections, have them normalized
         roi_f = np.fft.fftn(roi, s=None, axes=None, norm=None) #perform discrete Fourier transform on ROI
         #could potentially do a real FFT/Hermitian FFT. Could save computational time?
         #TODO: Should we normalize? (i.e. make it 'ortho')
@@ -108,14 +108,14 @@ for i in range(0, numx):
         coherence = t.coherence(lambda_max, lambda_min)
         energy = lambda_max + lambda_min
         
-        #debugging...
-        with open(os.path.join(outdir, 'eigenstuff.txt'), 'a') as outf:
-            outf.write(str(estuff) + '\n') #write resulting intensity array to file
-            #np.savetxt(fname = outf, X = estuff, delimiter = ' ')
-            #outf.write('\n')
-            outf.write('Coherence: ' + str(coherence) + '\n')
-            outf.write('Energy: ' + str(energy) + '\n')
-            outf.write('\n\n')
+#        #debugging...
+#        with open(os.path.join(outdir, 'eigenstuff.txt'), 'a') as outf:
+#            outf.write(str(estuff) + '\n') #write resulting intensity array to file
+#            #np.savetxt(fname = outf, X = estuff, delimiter = ' ')
+#            #outf.write('\n')
+#            outf.write('Coherence: ' + str(coherence) + '\n')
+#            outf.write('Energy: ' + str(energy) + '\n')
+#            outf.write('\n\n')
         
         #populate matrices
         A_er[j][i] = t.aniso_ratio(lambda_max, lambda_min, intensities[j][i]) #populate A_er matrix using appropriate formula and weighting
@@ -154,12 +154,13 @@ with open(os.path.join(outdir, 'roi_infos.txt'), 'w') as outf: #needs to be in b
     outf.write(str(roi_infos))
 
 
-evec_field = t.plot_vector_field(vecs_x = evecs_x, vecs_y = evecs_y, lens = [numx, numy], deltas = [roix, roiy])
 
-print('A vector field of the eigenvectors derived from this analysis has been plotted, and orientation such that the vectors appear in the same relative location as the ROI it describes.')
+
+print('A vector field of the eigenvectors derived from this analysis may be plotted, with xy-orientation such that the vectors appear in the same relative location as the ROI it describes.')
 plot_mark = input("Would you like to view and save this vector field? (Y/N):")
 
 if plot_mark.lower() == 'y':
+    evec_field = t.plot_vector_field(vecs_x = evecs_x, vecs_y = evecs_y, lens = [numx, numy], deltas = [roix, roiy])
     pyplot.show(evec_field)
 
     pyplot.savefig(os.path.join(outdir,'evec_field.pdf'), bbox_inches='tight')
@@ -176,7 +177,44 @@ if plot_mark.lower() == 'y':
 ## TODO: allow user to select what information to use for HSB/HSV
 # hues == orientations, saturations == coherencies, values == A_er
 
-hsv = t.create_hsv_array(hues = oris, saturations = A_er, values = None, original_image = im_orig)
+
+
+
+
+#
+## choices for anisotropy measurements
+#options = {'ori': oris, 'c': C, 'o': None, 'e': E, 'r': A_er}
+#
+#channels = []
+#c_names = ["hue", "saturation", "value"]
+#choices = []
+#
+#print('Please indicate from the description below what should be used to create the channel for the following:')
+#
+#while len(channels) < len(c_names):
+#    print("'ori' for eigenvector orientations")
+#    print("'c' for coherence values.")
+#    print("'e' for energy values.")
+#    print("'r' for anisotropy ratio values.")
+#    print("'o' for original image values.")
+#    print("Press enter without typing anything else to quit.")
+#    k = input('What would you like to base the ' + c_names[len(channels)] + 'channel on?')
+#    if k == '':
+#        sys.exit(42)
+#    try:
+#        channels.append(options[k])
+#        choices.append(k)
+#    except KeyError:
+#        print("Invalid argument! Please review the possible printed vvalues and try again.")
+#        
+
+
+#for debugging
+channels = [oris, C, None]
+choices = ['ori', 'c', 'o']
+
+
+hsv = t.create_hsv_array(hues = channels[0], saturations = channels[1], values = channels[2], original_image = im_orig)
 rgb = t.hsv_to_rgb(hsv)
 
 #scale the [0,1] float rgb values to [0,255] ints
@@ -187,7 +225,7 @@ rgb = np.array(255*rgb, dtype = int)
 fci = Image.fromarray(rgb, mode = 'RGB') #false-colored image
 fci = fci.resize(im_orig.size) #scale back up to original_image size
 
-fci.save(os.path.join(outdir, im_name+'_analyzed (xsize=' + str(numx) + ',ysize=' + str(numy) + ').jpg'))
+fci.save(os.path.join(outdir, im_name+' '+ '_'.join(choices) +' analyzed (xsize=' + str(numx) + ',ysize=' + str(numy) + ').jpg'))
 
 print("A falsely colored image has been created.") ## TODO: Make this more meaningful...
 
