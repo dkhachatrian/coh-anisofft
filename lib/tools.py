@@ -23,7 +23,7 @@ import sys #to exit script if desired
 
 
 def get_image(dep):
-    """ Prompts user for name of image. (Pass in the location of the dependencies folder.) """
+    """ Prompts user for name of image. (Pass in the location of the dependencies folder.) Returns open Image, and image name. """
 
     image_name = input("Please state the full filename for the image of interest (located in the dependencies directory of this script), or enter nothing to quit: \n")
     
@@ -34,7 +34,7 @@ def get_image(dep):
     
     im_orig = Image.open(os.path.join(dep, image_name))
 
-    return im_orig
+    return im_orig, image_name
 
 
 def get_ROI(im):
@@ -469,10 +469,10 @@ def array_to_image_channel(data, SCALE_MAX = 2**8 - 1, max_value = None, dtype =
     max_value is the value that maps to SCALE_MAX. If max_value is not specified, the maximum of the dataset's array is used.
     dtype determines the datatype of the resulting array. By default, it is int."""
     
-    if SCALE_MAX == None:    
+    if SCALE_MAX is None:    
         SCALE_MAX = 2**8 - 1
     
-    if max_value == None:
+    if max_value is None:
         max_value = max(data)
     
     scalar = SCALE_MAX/max_value
@@ -489,7 +489,8 @@ def create_hsv_array(hues = None, saturations = None, values = None, original_im
     ### TODO: Make original_image values usable (especially if bands are not RGB or HSV)
     
     g = [hues, saturations, values]
-    scale_maxes = [np.pi, 255, 255]
+    scale_maxes = [255,255,255]
+    #scale_maxes = [np.pi, 255, 255]
     
     #get scales, if applicable (i.e., if not being taken from original iamge)    
     
@@ -509,7 +510,8 @@ def create_hsv_array(hues = None, saturations = None, values = None, original_im
         val_max = -1
     
     value_maxes = [180, sat_max, val_max] #180 because oris is in degrees
-    dtypes = [float, int, int]
+    dtypes = [int,int,int]
+    #dtypes = [float, int, int]
     
     
 #    # ensure lists can be zipped
@@ -531,10 +533,10 @@ def create_hsv_array(hues = None, saturations = None, values = None, original_im
     invalid = np.ones([4,2]) - 43    
     
     # collect rescaled arrays
-    for arr,s,v,d in zipped:
+    for arr,sc,v,dt in zipped:
        # t = inv
         if arr is not None: #None is the only object of the NoneType, so can (and should!) use 'is'
-            t = array_to_image_channel(data = arr, SCALE_MAX = s, max_value = v, dtype = d)
+            t = array_to_image_channel(data = arr, SCALE_MAX = sc, max_value = v, dtype = dt)
         else:
             t = invalid
         rl.append(t)
@@ -546,8 +548,9 @@ def create_hsv_array(hues = None, saturations = None, values = None, original_im
     cleaned = []
 
     for op,mat in zip(options,rl):
-        if np.array_equal(mat, invalid):
-            cleaned.append(get_hsv_channel_from(image = original_image, channel = op))
+        if np.array_equal(mat, invalid): #if not specified, take from original image
+            og_im = get_hsv_channel_from(image = original_image, channel = op)
+            cleaned.append(og_im)
         else:
             #resize matrix to that of the original image
             temp_im = Image.fromarray(mat) #convert to image
@@ -579,9 +582,84 @@ def get_hsv_channel_from(image, channel):
         im_con = Image.fromarray(im_con_d) #Image
         ch = im_con.split()[d[channel]] #channel
         return np.array(ch) #2D array (mask)
+    elif image.mode == 'RGBA':
+        im_con = pure_pil_alpha_to_color_v2(image) #mix with pure black, which I assume is what the alpha channel is "mixing" with (where max alpha --> opaque)
+        ch = im_con.split()[d[channel]] #channel
+        return np.array(ch) #2D array (mask)        
 
 
 def hsv_to_rgb(data):
     """ Converts a NumPy array of HSV values into RGB values (to use PIL to output an Image). """
-    return colors.hsv_to_rgb(data)
+    # Turns out colors.hsv_to_rgb expects a range from 0 to 1
+    # so ensure they all fall in this range, then pass it in and return the result
+    rl = []
+    for channel in np.dsplit(data, data.shape[-1]):
+        rl.append(channel/channel.max())
+    stacked = np.dstack(rl)
+    return colors.hsv_to_rgb(stacked)
+
+#def rgba_to_rgb(image):
+#    """ Converts a 4-channel matrix representing RGBA data into the corresponding RGB data matrix. """
+#    # The value of alpha in the color code ranges from 0.0 to 1.0, where 0.0 represents a fully transparent color, and 1.0 represents a fully opaque color.
+#    
+#    if image.mode != 'RGBA':
+#        print('Using rgba_to_rgb on a function not specified as RGBA!')
+#    
+#    data = np.array(image)
+#    
+#    if len(data.shape) != 3 or data.shape[-1] != 4: #size of tuple or number of dimensions (4) doesn't match:
+#        print('Using rgba_to_rgb on an image whose data does not conform to the expected data shape!')
+#    
+##    rl = get_list_of_channel_matrices_from(image)
+##    
+#    ### TODO: perform alpha blending, now    
+#    
+#    #for each array of 4 values...
+#    for y in data:
+#        for x in y:
+#            #now have array of four values, corresponding to the (x,y) = (i,j) pixel of image
+            
     
+#copypasta
+def pure_pil_alpha_to_color_v2(image, color=(255, 255, 255)):
+    """Alpha composite an RGBA Image with a specified color.
+
+    Simpler, faster version than the solutions above.
+
+    Source: http://stackoverflow.com/a/9459208/284318
+
+    Keyword Arguments:
+    image -- PIL RGBA Image object
+    color -- Tuple r, g, b (default 255, 255, 255)
+
+    """
+    image.load()  # needed for split()
+    background = Image.new('RGB', image.size, color)
+    background.paste(image, mask=image.split()[3])  # 3 is the alpha channel
+    return background
+
+
+
+
+
+
+
+
+
+
+
+#def get_list_of_channel_matrices_from(image):
+#    """ Returns a list of matrices from image. """
+#    
+#    data = np.array(image)
+#    
+#    masks = np.dsplit(data, data.shape[-1])
+#    channels = []
+#    
+#    for mask in masks:
+#        it = np.nditer(mask)
+#        s_list = [np.asscalar(z) for z in it]
+#        channel = np.reshape(np.array(s_list), data.shape[:-1])
+#        channels.append(channel)
+#    
+#    return channels
