@@ -41,23 +41,48 @@ def get_ROI(im):
     """ Determine size of ROI to be used. Also prompt whether to tile the image with the ROI (coarse; suitable for vector fields); or slide the ROI all around the image (for false-color imaging).
     Pass in image to determine size."""
     
+
+    choices = ['s', 't', '']    
+    
+    case = input("Please state whether you would like to use a s(liding ROI) or a t(iling ROI). Please type either 's' or 't', or type nothing to quit: \n")
+
+    while case.lower() not in choices:
+        print("Error! Input not recognized. Please type either 's' or 't', or nothing to quit.")
+        input("Please enter your choice now: \n")
+    
+    if case == '':
+        sys.exit()
+    elif case == 't':
+        roix, roiy = get_tiling_ROI(im)
+    elif case == 's':
+        roix, roiy = get_sliding_ROI(im)
+    
+    return (roix,roiy,case)
+        
+
+
+def get_tiling_ROI(im):
+    """ Determine size of the tiling ROI to be used.
+    Pass in image to determine size.""" 
+ 
+ 
     # TODO: collapse below into a loop?
     # TODO: Handle ValueError caused by trying to int(inx) invalid values of inx
-    
+     
     (xsize, ysize) = im.size #im is still an Image, and not an array
-    
-    
+
+   
     inx = input("Please state the number of regions of interest you would like to fit in the x-direction of the image. There must be no remainder. (Current x-size of image: " + str(int(xsize)) + "): \n")
     
     
-    while (xsize % int(inx)) != 0:
-        inx = input("Does not divide cleanly! Please try again. (Current x-size of image: " + str(int(xsize)) + "): \n")
+    while not inx.isdigit() or (xsize % int(inx)) != 0:
+        inx = input("Input was not a digit, or does not divide cleanly! Please try again. (Current x-size of image: " + str(int(xsize)) + "): \n")
         
     
     iny = input("Please state the number of regions of interest you would like to fit in the y-direction of the image. There must be no remainder. (Current y-size of image: " + str(int(ysize)) + "): \n")
     
-    while (ysize % int(iny)) != 0:
-        iny = input("Does not divide cleanly! Please try again. (Current y-size of image: " + str(int(ysize)) + "): \n")
+    while not iny.isdigit() or (ysize % int(iny)) != 0:
+        iny = input("Input was not a digit, or does not divide cleanly! Please try again. (Current y-size of image: " + str(int(ysize)) + "): \n")
         
     numx = int(inx)
     numy = int(iny)
@@ -66,6 +91,44 @@ def get_ROI(im):
     roiy = int(ysize / numy)
 
     return roix, roiy
+
+
+def get_sliding_ROI(im):
+    """ Determine size of the tiling ROI to be used.
+    Pass in image to determine size.""" 
+ 
+ 
+    # TODO: collapse below into a loop?
+    # TODO: Handle ValueError caused by trying to int(inx) invalid values of inx
+     
+    (xsize, ysize) = im.size #im is still an Image, and not an array
+
+   
+    inx = input("Please state the size of the ROI in the x-direction. This value must be smaller than the x-size of the original image, and is recommended to be 1/10 the image x-size or smaller. (Current x-size of image: " + str(int(xsize)) + "): \n")
+    
+    
+    while not (inx.isdigit() and int(inx) > 0 and (int(inx)) < xsize):
+        inx = input("Input was not a digit, or was nonpositive or too large! Please try again. (Current x-size of image: " + str(int(xsize)) + "): \n")
+        
+    
+    iny = input("Please state the size of the ROI in the x-direction. This value must be smaller than the y-size of the original image, and is recommended to be 1/10 the image y-size or smaller. (Current y-size of image: " + str(int(ysize)) + "): \n")
+    
+    while not (iny.isdigit() and int(iny) > 0 and (int(iny)) < ysize):
+        inx = input("Input was not a digit, or was nonpositive or too large! Please try again. (Current y-size of image: " + str(int(ysize)) + "): \n")
+        
+    numx = int(inx)
+    numy = int(iny)
+
+#    roix = int(xsize / numx) #roix = xsize for a given region of interest
+#    roiy = int(ysize / numy)
+
+    return numx, numy
+#    return roix, roiy
+
+
+
+
+
 
 
 ################################
@@ -146,13 +209,13 @@ def create_windowed_roi(data,startx,starty,width,height):
 #    return roi.astype('uint8')
 
 
-def calculate_relative_intensities(input, slice_numbers):
+def calculate_relative_intensities(data, slice_numbers, roi_type):
     """Input a n-dimentionsal array, and the number of subregions to be made (in a list of ints, n_slices; e.g., [2,3] would divide the original image into 6 rectangles, 2 fitting in the x-direction and 3 fitting in the y-direction). Return an n-dimensional array with the mean intensities of each subregion, relative to the mean intensity of the entire image.
     Will complain if the dimension of input does not match the size of slice_numbers."""
     
     # TODO: check that the resulting matrix isn't actually transposed from what it should be    
     
-    if(input.ndim != len(slice_numbers)):
+    if(data.ndim != len(slice_numbers)):
         print('The dimension of the input data array and the specified slice numbers do not match!')
         pass
     
@@ -160,34 +223,42 @@ def calculate_relative_intensities(input, slice_numbers):
     
     roi_sizes = []
 
-    for i in range(len(input.shape)):
-        roi_sizes.append(input.shape[i] / slice_numbers[i]) #get dimensions of ROI for each x,y,z,etc. component
+
+    if roi_type == 't':
+        for i in range(len(data.shape)):
+            roi_sizes.append(data.shape[i] / slice_numbers[i]) #get dimensions of ROI for each x,y,z,etc. component
+    elif roi_type == 's':
+        roi_sizes = list(slice_numbers)
     
     # roi_sizes = input.shape/slice_numbers #tuple/tuple division doesn't work :'(
     
     roi = np.ndarray(roi_sizes) #gives the roi its proper shape
     #TODO: check for rounding problems (since dividing ints by ints)
     
-    total_sum = 0.0
-    temp_sum = 0.0    
+#    total_sum = 0.0
+#    temp_sum = 0.0    
     
     #TODO: how to generalize looping properly?
     for i in range(slice_numbers[0]):
         for j in range(slice_numbers[1]): #for each roi
-            roi = input[roi_sizes[0]*i:roi_sizes[0]*(i+1),roi_sizes[1]*j:roi_sizes[1]*(j+1)]        #pull out the information on a given roi. Note: comma between slices (not open/close brackets)
         
-            for a in range(roi.shape[0]): #at each x-pixel within an roi
-                for b in range(roi.shape[1]): #at each y-pixel within an roi
-                    temp_sum += roi[a][b]
-            
-            total_sum += temp_sum
-            
-            intensities[i][j] = temp_sum / roi.size #mean intensity
-            
-            temp_sum = 0
+            if roi_type == 't':
+                roi = data[roi_sizes[0]*i:roi_sizes[0]*(i+1),roi_sizes[1]*j:roi_sizes[1]*(j+1)]        #pull out the information on a given roi. Note: comma between slices (not open/close brackets)
+            elif roi_type == 's':
+                roi = data[i:(i+roi_sizes[0]), j:(j+roi_sizes[1])]
+        
+#            for a in range(roi.shape[0]): #at each x-pixel within an roi
+#                for b in range(roi.shape[1]): #at each y-pixel within an roi
+#                    temp_sum += roi[a][b]
+        
+#            temp_sum = roi.sum()
+#            total_sum += temp_sum
+#           
+#            intensities[i][j] = temp_sum / roi.size #mean intensity
+            intensities[i][j] = roi.sum() / roi.size #mean intensity for specific ROI
     
-    
-    mean_intensity = total_sum / input.size #average across all pixels
+    mean_intensity = intensities.sum() / intensities.size #mean intensity for all ROIs
+#    mean_intensity = total_sum / data.size #average across all pixels
     
     intensities /= mean_intensity #normalize intensities matrix by mean_intensity of entire image
     
@@ -468,98 +539,146 @@ def overlay_images(foreground, background):
 #### Image Channel-Related Functions #####
 ##########################################
 
-def array_to_image_channel(data, SCALE_MAX = 2**8 - 1, max_value = None, dtype = int):
-    """ Returns an array of data (a numpy array) normalized to a scale denoted by SCALE_MAX (255 by default). Scaling is done linearly.
-    max_value is the value that maps to SCALE_MAX. If max_value is not specified, the maximum of the dataset's array is used.
-    dtype determines the datatype of the resulting array. By default, it is int."""
-    
-    if SCALE_MAX is None:    
-        SCALE_MAX = 2**8 - 1
-    
-    if max_value is None:
-        max_value = max(data)
-    
-    scalar = SCALE_MAX/max_value
-    
-    out = data * scalar
-    
-    return out.astype(dtype) #convert from flaot64 to appropriate dtype
+data_to_minmax = {'ori': 180, 'e': (0,1), 'c': None, 'r': (0,1), 'o': None}
+# describes the type of scaling to be done to data corresponding to different information. The type of the key determines what to do:
+# None --> perform no scaling (values already between 0 and 1)
+# int --> divide all values by the int
+# tuple --> have all values fall between the two ends of the tuple, where the minimum of the data maps to the first element of the tuple and the maximum of the data maps to the second element
 
 
-def create_hsv_array(hues = None, saturations = None, values = None, original_image = None):
+def scale_array(data, d_id):
+    """ Returns an array of data (a numpy array) normalized to a scale determined by the data ID (d_id).
+    The specific scales used are described in the comments at the declaration of data_to_minmax."""
+
+    try:        
+        k = data_to_minmax[d_id]
+    except KeyError:
+        print("scale_array attempted to look up a key that doesn't exist in data_to_minmax!")
+        sys.exit()
+    
+    if k is None:
+        return data #no scaling should be performed
+    
+    data = data.astype('float64') #for proper division    
+    
+    try:
+        min_value, max_value = k[0], k[1]
+        
+        #normalize matrix 0-to-1
+        data -= data.min()
+        data /= (data.max()-data.min())
+
+        #scale to proper dynamic range, shift to proper scale
+        data *= (max_value - min_value)        
+        data += min_value
+        
+        return data
+        
+    except TypeError:
+        pass
+    
+    if type(k) is int: #simple division
+        data /= k
+        return data
+    
+#    if SCALE_MAX is None:    
+#        SCALE_MAX = 2**8 - 1
+#    
+#    if max_value is None:
+#        max_value = max(data)
+#    
+#    scalar = SCALE_MAX/max_value
+#    
+#    out = data * scalar
+#    
+#    return out.astype(dtype) #convert from flaot64 to appropriate dtype
+
+
+def create_hsv_array(data_dict, options, original_image = None):
     """ Inputs: 2D Numpy arrays (normalized or not) with the same dimensions as the final image will have, to represent HSV tuples at each pixel.
     The original image on which analysis has presumably been performed to obtain analytically interesting arrays for the 2D Numpy arrays. If any of the arrays are not specified, the corresponding value from the original image will be used instead.
     Outputs: a 2D Numpy array of 3-element arrays, that can be converted pixelwise to RGB using, e.g., colorsys.hsv_to_rgb, and saved as an Image using the PIL module."""
     ### TODO: Make original_image values usable (especially if bands are not RGB or HSV)
     
-    g = [hues, saturations, values]
-    scale_maxes = [255,255,255]
-    #scale_maxes = [np.pi, 255, 255]
-    
-    #get scales, if applicable (i.e., if not being taken from original iamge)    
-    
+#    g = [hues, saturations, values]
+#    scale_maxes = [255,255,255]
+#    #scale_maxes = [np.pi, 255, 255]
+#    
+#    #get scales, if applicable (i.e., if not being taken from original iamge)    
+#    
+##    try:
+##        val_max = 180
+##    except AttributeError:
+##        val_max = -1    
+#    
 #    try:
-#        val_max = 180
+#        sat_max = saturations.max()
 #    except AttributeError:
-#        val_max = -1    
-    
-    try:
-        sat_max = saturations.max()
-    except AttributeError:
-        sat_max = -1
-    
-    try:
-        val_max = values.max()
-    except AttributeError:
-        val_max = -1
-    
-    value_maxes = [180, sat_max, val_max] #180 because oris is in degrees
-    dtypes = [int,int,int]
-    #dtypes = [float, int, int]
-    
-    
-#    # ensure lists can be zipped
-#    if hues.shape != saturations.shape or saturations.shape != values.shape:
-#        print('Not every pixel has a hue, saturation, and brightness value!')
+#        sat_max = -1
+#    
+#    try:
+#        val_max = values.max()
+#    except AttributeError:
+#        val_max = -1
+#    
+#    value_maxes = [180, sat_max, val_max] #180 because oris is in degrees
+#    dtypes = [int,int,int]
+#    #dtypes = [float, int, int]
+#    
+#    
+##    # ensure lists can be zipped
+##    if hues.shape != saturations.shape or saturations.shape != values.shape:
+##        print('Not every pixel has a hue, saturation, and brightness value!')
+#
+#    zipped = zip(g, scale_maxes, value_maxes, dtypes)
+#    
+#    rl = [] #rescaled_list
+##    
+##    cart_prods = []
+##    
+##    for oi,av in zip(np.array(original_image).shape, hues.shape): #original image, analyzed values
+##        cart_prods.append(oi/av)
+##    
+##    cart_prods = np.array(cart_prods, dtype = int)
+#    
+#    # "invalid" array
+#    invalid = np.ones([4,2]) - 43    
+#    
+#    # collect rescaled arrays
+#    for arr,sc,v,dt in zipped:
+#       # t = inv
+#        if arr is not None: #None is the only object of the NoneType, so can (and should!) use 'is'
+#            t = scale_array(data = arr, SCALE_MAX = sc, max_value = v, dtype = dt)
+#        else:
+#            t = invalid
+#        rl.append(t)
+#        
+#    # take values from original image if appropriate
+#    
+#    # can probably use itertools to not need to make this list so explicitly...
+#    options = ['h', 's', 'v']
+#    cleaned = []
+#
+#    for op,mat in zip(options,rl):
+#        if np.array_equal(mat, invalid): #if not specified, take from original image
+#            og_im = get_hsv_channel_from(image = original_image, channel = op)
+#            cleaned.append(og_im)
+#        else:
+#            #resize matrix to that of the original image
+#            temp_im = Image.fromarray(mat) #convert to image
+#            temp_im = temp_im.resize(original_image.size) #rescale to original image
+#            cleaned.append(np.array(temp_im)) #conert back to matrix, and append
 
-    zipped = zip(g, scale_maxes, value_maxes, dtypes)
-    
-    rl = [] #rescaled_list
-#    
-#    cart_prods = []
-#    
-#    for oi,av in zip(np.array(original_image).shape, hues.shape): #original image, analyzed values
-#        cart_prods.append(oi/av)
-#    
-#    cart_prods = np.array(cart_prods, dtype = int)
-    
-    # "invalid" array
-    invalid = np.ones([4,2]) - 43    
-    
-    # collect rescaled arrays
-    for arr,sc,v,dt in zipped:
-       # t = inv
-        if arr is not None: #None is the only object of the NoneType, so can (and should!) use 'is'
-            t = array_to_image_channel(data = arr, SCALE_MAX = sc, max_value = v, dtype = dt)
-        else:
-            t = invalid
-        rl.append(t)
-        
-    # take values from original image if appropriate
-    
-    # can probably use itertools to not need to make this list so explicitly...
-    options = ['h', 's', 'v']
     cleaned = []
+    
+    for k in options:
+        arr = scale_array(data_dict[k], k)
+        if k != 'o': #scale to original original image size, if not from original image
+            temp_im = Image.fromarray(arr)
+            temp_im = temp_im.resize(original_image.size)
+            arr = np.array(temp_im)
+        cleaned.append(arr) # assumes options passed in as h-->s-->v
 
-    for op,mat in zip(options,rl):
-        if np.array_equal(mat, invalid): #if not specified, take from original image
-            og_im = get_hsv_channel_from(image = original_image, channel = op)
-            cleaned.append(og_im)
-        else:
-            #resize matrix to that of the original image
-            temp_im = Image.fromarray(mat) #convert to image
-            temp_im = temp_im.resize(original_image.size) #rescale to original image
-            cleaned.append(np.array(temp_im)) #conert back to matrix, and append
 
     hsv = np.dstack(cleaned)
     
