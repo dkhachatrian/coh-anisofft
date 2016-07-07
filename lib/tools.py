@@ -12,6 +12,7 @@ from matplotlib import colors # for matplotlib.colors.rgb_to_hsv(arr)
 
 import os
 import sys #to exit script if desired
+import pdb
 
 #import colorsys #for HSV-RGB conversion
 
@@ -438,9 +439,12 @@ def rotate_vector(v, theta, dim = [0,1]):
     #get rotated components
     out = np.dot(rot, sl)
     
+    
+    
     #replace original vector components with rotated components
     v[d1] = out[0]
     v[d2] = out[1]
+
     
     return v
 
@@ -559,7 +563,7 @@ def scale_array(data, d_id):
     if k is None:
         return data #no scaling should be performed
     
-    data = data.astype('float64') #for proper division    
+    #data = data.astype('float64') #for proper division    
     
     try:
         min_value, max_value = k[0], k[1]
@@ -717,7 +721,10 @@ def hsv_to_rgb(data):
     # so ensure they all fall in this range, then pass it in and return the result
     rl = []
     for channel in np.dsplit(data, data.shape[-1]):
-        rl.append(channel/channel.max())
+        try:
+            rl.append(channel/channel.max())
+        except RuntimeWarning:
+            pdb.run()
     stacked = np.dstack(rl)
     return colors.hsv_to_rgb(stacked)
 

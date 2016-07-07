@@ -229,7 +229,7 @@ rgb = t.hsv_to_rgb(hsv)
 
 #scale the [0,1] float rgb values to [0,255] ints
 
-rgb = np.array(255*rgb, dtype = int)
+rgb = np.array(255*rgb, dtype = 'uint8')
 
 #fci = Image.fromarray(hsv, mode = 'HSV') #false-colored image
 fci = Image.fromarray(rgb, mode = 'RGB') #false-colored image
